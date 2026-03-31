@@ -1,12 +1,12 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 3 - timer IRQ groundwork (PIC remap + PIT + recurring IRQ0 serial ticks) validated in QEMU
+> Current status: Stage 4 - keyboard IRQ groundwork (IRQ1 scancode capture) validated in QEMU
 
-CustomOS is a from-scratch operating system project with a low-level systems focus. The repository is currently at a disciplined Stage 3 baseline with deterministic early initialization, exception groundwork, and recurring timer IRQ behavior in place. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation.
+CustomOS is a from-scratch operating system project with a low-level systems focus. The repository is currently at a disciplined Stage 4 baseline with deterministic early initialization, exception groundwork, recurring timer IRQ behavior, and minimal keyboard IRQ handling in place. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation.
 
 The goal is to build a clean, well-structured OS from first principles, focusing on correctness, debuggability, and incremental bring-up.
 
-## Architecture snapshot (Stage 3)
+## Architecture snapshot (Stage 4)
 
 - 32-bit protected mode (Multiboot2 entry)
 - No paging yet
@@ -15,8 +15,9 @@ The goal is to build a clean, well-structured OS from first principles, focusing
 - Exceptions handled via assembly stubs → C dispatcher
 - PIC remapped for hardware IRQ vectors
 - PIT configured for periodic IRQ0 timer interrupts
+- Keyboard IRQ1 routed through IDT and raw scancodes read from port 0x60
 
-## Current baseline (Stage 3)
+## Current baseline (Stage 4)
 
 Implemented and verified:
 
@@ -32,23 +33,26 @@ Implemented and verified:
 - Exception diagnostics output to VGA text mode and COM1 serial.
 - PIC remap and IRQ0 unmasking for timer delivery.
 - PIT periodic tick configuration.
-- Recurring Stage 3 tick output on COM1 serial while idle.
+- Recurring Stage 4 tick output on COM1 serial while idle.
+- IRQ1 keyboard interrupt support with raw scancode logging to COM1 serial.
 
-## Stage 3 highlights
+## Stage 4 highlights
 
 - Stage 2 exception coverage remains active with the same deterministic diagnostics path.
-- Stage 3 adds PIC remapping and PIT startup, then enables IRQ0 timer interrupts via IDT vector 0x20.
-- Recurring serial tick lines confirm continued interrupt delivery and EOI handling while the kernel idles.
+- Stage 3 timer groundwork remains active: PIC remap, PIT startup, IRQ0 periodic ticks, and EOI handling.
+- Stage 4 adds keyboard IRQ1 support via IDT vector 0x21 with raw scancode capture from port 0x60.
+- Timer and keyboard interrupts coexist while the kernel remains alive in the interruptible idle loop.
 
 ## Scope boundaries
 
 Implemented now:
 
 - Reproducible build and run flow from source to bootable ISO.
-- Stage 3 deterministic startup messages on VGA and serial.
+- Stage 4 deterministic startup messages on VGA and serial.
 - Minimal panic behavior with explicit halt semantics.
 - IDT installation and basic exception diagnostics.
 - IRQ0 timer groundwork with PIC/PIT and periodic serial ticks.
+- IRQ1 keyboard groundwork with raw scancode serial logging.
 
 Deliberately not implemented yet:
 
@@ -88,16 +92,17 @@ make iso
 
 ## Expected output
 
-### Normal Stage 3 run
+### Normal Stage 4 run
 
 VGA and COM1 serial should show:
 
-- custom-os Stage 3: init start
-- custom-os Stage 3: Multiboot2 handoff OK
-- custom-os Stage 3: IDT installed
-- custom-os Stage 3: PIC remapped + PIT started
-- custom-os Stage 3: deterministic init OK
-- recurring serial lines like custom-os Stage 3 tick: 0x00000064
+- custom-os Stage 4: init start
+- custom-os Stage 4: Multiboot2 handoff OK
+- custom-os Stage 4: IDT installed
+- custom-os Stage 4: PIC remapped + PIT started
+- custom-os Stage 4: deterministic init OK
+- recurring serial lines like custom-os Stage 4 tick: 0x00000064
+- keyboard serial lines like custom-os Stage 4 scancode: 0x0000001E
 
 ### Forced INT3 exception test
 
@@ -125,7 +130,7 @@ Note: eip, cs, and eflags are runtime context values and vary by run environment
 
 ## Panic-path self-test (Stage 1 regression check)
 
-Keep this test to ensure the Stage 1 fatal path contract remains intact while Stage 3 evolves.
+Keep this test to ensure the Stage 1 fatal path contract remains intact while Stage 4 evolves.
 
 ```sh
 make clean
@@ -134,7 +139,7 @@ make run STAGE1_FORCE_PANIC=1
 
 Expected panic output (VGA and serial):
 
-- custom-os Stage 3 PANIC
+- custom-os Stage 4 PANIC
 - forced panic for Stage 1 test
 - detail: 0x0000F001
 
@@ -153,4 +158,6 @@ Expected panic output (VGA and serial):
 - docs/milestone-tracker.md
 - docs/milestones/stage-0.md
 - docs/milestones/stage-1.md
+- docs/milestones/stage-2.md
 - docs/milestones/stage-3.md
+- docs/milestones/stage-4.md
