@@ -6,6 +6,8 @@ TARGET_ARCH := x86_64
 BOOT_ENTRY_MODE := i386
 
 TOOLCHAIN_PREFIX ?= i686-elf
+STAGE1_FORCE_PANIC ?= 0
+
 CC := $(TOOLCHAIN_PREFIX)-gcc
 LD := $(TOOLCHAIN_PREFIX)-ld
 AS := $(TOOLCHAIN_PREFIX)-as
@@ -28,7 +30,7 @@ GRUB_CFG := boot/grub/grub.cfg
 ENTRY_OBJ := $(OUT_DIR)/stage0_entry.o
 KERNEL_OBJ := $(OUT_DIR)/stage0_main.o
 
-CFLAGS := -std=c11 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -Wall -Wextra -Werror -m32
+CFLAGS := -std=c11 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -Wall -Wextra -Werror -m32 -DSTAGE1_FORCE_PANIC=$(STAGE1_FORCE_PANIC)
 ASFLAGS := --32
 LDFLAGS := -m elf_i386 -T $(LINKER_SCRIPT) -nostdlib
 
