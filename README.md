@@ -1,20 +1,22 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 2 – IDT + exception handling validated in QEMU
+> Current status: Stage 3 - timer IRQ groundwork (PIC remap + PIT + recurring IRQ0 serial ticks) validated in QEMU
 
-CustomOS is a from-scratch operating system project with a low-level systems focus. The repository is currently at a disciplined Stage 2 baseline with deterministic early initialization and exception groundwork in place. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation.
+CustomOS is a from-scratch operating system project with a low-level systems focus. The repository is currently at a disciplined Stage 3 baseline with deterministic early initialization, exception groundwork, and recurring timer IRQ behavior in place. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation.
 
 The goal is to build a clean, well-structured OS from first principles, focusing on correctness, debuggability, and incremental bring-up.
 
-## Architecture snapshot (Stage 2)
+## Architecture snapshot (Stage 3)
 
 - 32-bit protected mode (Multiboot2 entry)
 - No paging yet
 - Bootloader-provided GDT in use
 - IDT installed at runtime
 - Exceptions handled via assembly stubs → C dispatcher
+- PIC remapped for hardware IRQ vectors
+- PIT configured for periodic IRQ0 timer interrupts
 
-## Current baseline (Stage 2)
+## Current baseline (Stage 3)
 
 Implemented and verified:
 
@@ -28,21 +30,25 @@ Implemented and verified:
 - IDT setup.
 - Basic CPU exception handling for early bring-up.
 - Exception diagnostics output to VGA text mode and COM1 serial.
+- PIC remap and IRQ0 unmasking for timer delivery.
+- PIT periodic tick configuration.
+- Recurring Stage 3 tick output on COM1 serial while idle.
 
-## Stage 2 highlights
+## Stage 3 highlights
 
-- Stage 2 introduces explicit IDT setup in the early init path.
-- Core exception vectors are wired to a common dispatch path that prints diagnostics and halts safely.
-- Forced INT3 exception testing is working and used to validate the exception display path in QEMU.
+- Stage 2 exception coverage remains active with the same deterministic diagnostics path.
+- Stage 3 adds PIC remapping and PIT startup, then enables IRQ0 timer interrupts via IDT vector 0x20.
+- Recurring serial tick lines confirm continued interrupt delivery and EOI handling while the kernel idles.
 
 ## Scope boundaries
 
 Implemented now:
 
 - Reproducible build and run flow from source to bootable ISO.
-- Stage 2 deterministic startup messages on VGA and serial.
+- Stage 3 deterministic startup messages on VGA and serial.
 - Minimal panic behavior with explicit halt semantics.
 - IDT installation and basic exception diagnostics.
+- IRQ0 timer groundwork with PIC/PIT and periodic serial ticks.
 
 Deliberately not implemented yet:
 
@@ -59,7 +65,7 @@ Deliberately not implemented yet:
 - boot/grub/: GRUB configuration for bootable image generation.
 - arch/x86_64/: architecture-specific entry and exception assembly stubs.
 - linker/: linker script and memory layout contract.
-- kernel/init/: early kernel init and Stage 2 diagnostics.
+- kernel/init/: early kernel init and Stage 3 diagnostics.
 - build/: shared Make configuration and build targets.
 - scripts/: QEMU run wrappers for shell and PowerShell workflows.
 
@@ -82,14 +88,16 @@ make iso
 
 ## Expected output
 
-### Normal Stage 2 run
+### Normal Stage 3 run
 
 VGA and COM1 serial should show:
 
-- custom-os Stage 2: init start
-- custom-os Stage 2: Multiboot2 handoff OK
-- custom-os Stage 2: IDT installed
-- custom-os Stage 2: deterministic init OK
+- custom-os Stage 3: init start
+- custom-os Stage 3: Multiboot2 handoff OK
+- custom-os Stage 3: IDT installed
+- custom-os Stage 3: PIC remapped + PIT started
+- custom-os Stage 3: deterministic init OK
+- recurring serial lines like custom-os Stage 3 tick: 0x00000064
 
 ### Forced INT3 exception test
 
@@ -104,7 +112,7 @@ make run STAGE2_FORCE_EXCEPTION=1
 
 Expected exception-path markers:
 
-- custom-os Stage 2: triggering INT3 test
+- custom-os Stage 3: triggering INT3 test
 - custom-os Stage 2 EXCEPTION
 - #BP breakpoint
 - vector: 0x00000003
@@ -117,7 +125,7 @@ Note: eip, cs, and eflags are runtime context values and vary by run environment
 
 ## Panic-path self-test (Stage 1 regression check)
 
-Keep this test to ensure the Stage 1 fatal path contract remains intact while Stage 2 evolves.
+Keep this test to ensure the Stage 1 fatal path contract remains intact while Stage 3 evolves.
 
 ```sh
 make clean
@@ -126,13 +134,12 @@ make run STAGE1_FORCE_PANIC=1
 
 Expected panic output (VGA and serial):
 
-- custom-os Stage 2 PANIC
+- custom-os Stage 3 PANIC
 - forced panic for Stage 1 test
 - detail: 0x0000F001
 
 ## Future direction
 
-- Timer IRQ groundwork.
 - Scheduler bring-up.
 - Memory management bring-up.
 - User-space experiments.
@@ -146,4 +153,4 @@ Expected panic output (VGA and serial):
 - docs/milestone-tracker.md
 - docs/milestones/stage-0.md
 - docs/milestones/stage-1.md
-- Stage 2 milestone document (planned as docs/milestones/stage-2.md)
+- docs/milestones/stage-3.md

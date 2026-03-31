@@ -26,6 +26,7 @@ stage0_start:
     call stage0_main
 
 .hang:
+    sti
     hlt
     jmp .hang
 

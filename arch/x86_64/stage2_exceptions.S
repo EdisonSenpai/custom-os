@@ -5,7 +5,9 @@
 .global isr_stub_invalid_opcode
 .global isr_stub_general_protection
 .global isr_stub_page_fault
+.global irq_stub_timer
 .extern stage2_exception_dispatch
+.extern stage3_irq0_handler
 
 isr_stub_divide_error:
     push $0
@@ -48,3 +50,11 @@ isr_common:
     cli
     hlt
     jmp .halt
+
+irq_stub_timer:
+    pusha
+    cld
+    call stage3_irq0_handler
+    popa
+    iret
+

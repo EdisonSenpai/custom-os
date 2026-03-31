@@ -9,6 +9,22 @@
 #define MULTIBOOT2_BOOTLOADER_MAGIC 0x36D76289u
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
+#define IRQ_BASE_VECTOR 0x20u
+
+#define PIC1_COMMAND 0x20u
+#define PIC1_DATA 0x21u
+#define PIC2_COMMAND 0xA0u
+#define PIC2_DATA 0xA1u
+
+#define PIC_ICW1_INIT 0x10u
+#define PIC_ICW1_ICW4 0x01u
+#define PIC_ICW4_8086 0x01u
+#define PIC_EOI 0x20u
+
+#define PIT_CHANNEL0 0x40u
+#define PIT_COMMAND 0x43u
+#define PIT_INPUT_HZ 1193182u
+#define PIT_TARGET_HZ 100u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -17,6 +33,8 @@
 #ifndef STAGE2_FORCE_EXCEPTION
 #define STAGE2_FORCE_EXCEPTION 0
 #endif
+
+static volatile uint32_t g_timer_ticks = 0u;
 
 struct idt_entry {
     uint16_t offset_low;
@@ -39,6 +57,7 @@ extern void isr_stub_breakpoint(void);
 extern void isr_stub_invalid_opcode(void);
 extern void isr_stub_general_protection(void);
 extern void isr_stub_page_fault(void);
+extern void irq_stub_timer(void);
 
 static inline void outb(uint16_t port, uint8_t value)
 {
@@ -50,6 +69,11 @@ static inline uint8_t inb(uint16_t port)
     uint8_t value;
     __asm__ volatile ("inb %1, %0" : "=a"(value) : "Nd"(port));
     return value;
+}
+
+static inline void io_wait(void)
+{
+    outb(0x80u, 0u);
 }
 
 static void serial_init(void)
@@ -155,6 +179,59 @@ static void serial_write_label_hex(const char* label, uint32_t value)
     serial_write_text("\n");
 }
 
+static void pic_send_eoi(uint8_t irq)
+{
+    if (irq >= 8u) {
+        outb(PIC2_COMMAND, PIC_EOI);
+    }
+
+    outb(PIC1_COMMAND, PIC_EOI);
+}
+
+static void pic_set_masks(uint8_t master_mask, uint8_t slave_mask)
+{
+    outb(PIC1_DATA, master_mask);
+    outb(PIC2_DATA, slave_mask);
+}
+
+static void pic_remap(uint8_t master_offset, uint8_t slave_offset)
+{
+    const uint8_t master_mask = inb(PIC1_DATA);
+    const uint8_t slave_mask = inb(PIC2_DATA);
+
+    outb(PIC1_COMMAND, (uint8_t)(PIC_ICW1_INIT | PIC_ICW1_ICW4));
+    io_wait();
+    outb(PIC2_COMMAND, (uint8_t)(PIC_ICW1_INIT | PIC_ICW1_ICW4));
+    io_wait();
+
+    outb(PIC1_DATA, master_offset);
+    io_wait();
+    outb(PIC2_DATA, slave_offset);
+    io_wait();
+
+    outb(PIC1_DATA, 0x04u);
+    io_wait();
+    outb(PIC2_DATA, 0x02u);
+    io_wait();
+
+    outb(PIC1_DATA, PIC_ICW4_8086);
+    io_wait();
+    outb(PIC2_DATA, PIC_ICW4_8086);
+    io_wait();
+
+    outb(PIC1_DATA, master_mask);
+    outb(PIC2_DATA, slave_mask);
+}
+
+static void pit_init(uint32_t target_hz)
+{
+    const uint32_t divisor = PIT_INPUT_HZ / target_hz;
+
+    outb(PIT_COMMAND, 0x36u);
+    outb(PIT_CHANNEL0, (uint8_t)(divisor & 0xFFu));
+    outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8u) & 0xFFu));
+}
+
 static const char* exception_name(uint32_t vector)
 {
     switch (vector) {
@@ -216,11 +293,23 @@ static void idt_install(void)
     idt_set_gate(6u, isr_stub_invalid_opcode, code_selector);
     idt_set_gate(13u, isr_stub_general_protection, code_selector);
     idt_set_gate(14u, isr_stub_page_fault, code_selector);
+    idt_set_gate((uint8_t)(IRQ_BASE_VECTOR + 0u), irq_stub_timer, code_selector);
 
     g_idtr.limit = (uint16_t)(sizeof(g_idt) - 1u);
     g_idtr.base = (uint32_t)(uintptr_t)&g_idt[0];
 
     __asm__ volatile ("lidt %0" : : "m"(g_idtr));
+}
+
+void stage3_irq0_handler(void)
+{
+    g_timer_ticks++;
+
+    if ((g_timer_ticks % PIT_TARGET_HZ) == 0u) {
+        serial_write_label_hex("custom-os Stage 3 tick: ", g_timer_ticks);
+    }
+
+    pic_send_eoi(0u);
 }
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail)
@@ -230,12 +319,12 @@ __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail)
     format_hex32(detail, detail_hex);
     clear_screen();
 
-    write_text("custom-os Stage 2 PANIC", 0);
+    write_text("custom-os Stage 3 PANIC", 0);
     write_text(reason, 1);
     write_text("detail:", 2);
     write_text_at(detail_hex, 2, 8);
 
-    serial_write_text("custom-os Stage 2 PANIC\n");
+    serial_write_text("custom-os Stage 3 PANIC\n");
     serial_write_text(reason);
     serial_write_text("\n");
     serial_write_text("detail: ");
@@ -283,8 +372,8 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     clear_screen();
     serial_init();
 
-    write_text("custom-os Stage 2: init start", 0);
-    serial_write_text("custom-os Stage 2: init start\n");
+    write_text("custom-os Stage 3: init start", 0);
+    serial_write_text("custom-os Stage 3: init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -299,18 +388,25 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     }
 
     idt_install();
+    pic_remap((uint8_t)IRQ_BASE_VECTOR, (uint8_t)(IRQ_BASE_VECTOR + 8u));
+    pic_set_masks(0xFEu, 0xFFu);
+    pit_init(PIT_TARGET_HZ);
 
-    write_text("custom-os Stage 2: Multiboot2 handoff OK", 1);
-    write_text("custom-os Stage 2: IDT installed", 2);
-    write_text("custom-os Stage 2: deterministic init OK", 3);
+    write_text("custom-os Stage 3: Multiboot2 handoff OK", 1);
+    write_text("custom-os Stage 3: IDT installed", 2);
+    write_text("custom-os Stage 3: PIC remapped + PIT started", 3);
+    write_text("custom-os Stage 3: deterministic init OK", 4);
 
-    serial_write_text("custom-os Stage 2: Multiboot2 handoff OK\n");
-    serial_write_text("custom-os Stage 2: IDT installed\n");
-    serial_write_text("custom-os Stage 2: deterministic init OK\n");
+    serial_write_text("custom-os Stage 3: Multiboot2 handoff OK\n");
+    serial_write_text("custom-os Stage 3: IDT installed\n");
+    serial_write_text("custom-os Stage 3: PIC remapped + PIT started\n");
+    serial_write_text("custom-os Stage 3: deterministic init OK\n");
+
+    __asm__ volatile ("sti");
 
 #if STAGE2_FORCE_EXCEPTION
-    write_text("custom-os Stage 2: triggering INT3 test", 5);
-    serial_write_text("custom-os Stage 2: triggering INT3 test\n");
+    write_text("custom-os Stage 3: triggering INT3 test", 6);
+    serial_write_text("custom-os Stage 3: triggering INT3 test\n");
     __asm__ volatile ("int3");
 #endif
 }
