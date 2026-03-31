@@ -1,6 +1,10 @@
-# CustomOS [TBD → AnimeOS]
+# CustomOS (working title: AnimeOS)
+
+> Current status: Stage 2 – IDT + exception handling validated in QEMU
 
 CustomOS is a from-scratch operating system project with a low-level systems focus. The repository is currently at a disciplined Stage 2 baseline with deterministic early initialization and exception groundwork in place. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation.
+
+The goal is to build a clean, well-structured OS from first principles, focusing on correctness, debuggability, and incremental bring-up.
 
 ## Current baseline (Stage 2)
 
@@ -16,6 +20,14 @@ Implemented and verified:
 - IDT setup.
 - Basic CPU exception handling for early bring-up.
 - Exception diagnostics output to VGA text mode and COM1 serial.
+
+## Architecture snapshot (Stage 2)
+
+- 32-bit protected mode (Multiboot2 entry)
+- No paging yet
+- Bootloader-provided GDT in use
+- IDT installed at runtime
+- Exceptions handled via assembly stubs → C dispatcher
 
 ## Stage 2 highlights
 
@@ -80,6 +92,8 @@ VGA and COM1 serial should show:
 - custom-os Stage 2: deterministic init OK
 
 ### Forced INT3 exception test
+
+Note: QEMU may appear paused after an exception. This is expected because the CPU halts (cli + hlt).
 
 Run:
 
