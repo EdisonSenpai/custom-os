@@ -6,6 +6,14 @@ CustomOS is a from-scratch operating system project with a low-level systems foc
 
 The goal is to build a clean, well-structured OS from first principles, focusing on correctness, debuggability, and incremental bring-up.
 
+## Architecture snapshot (Stage 2)
+
+- 32-bit protected mode (Multiboot2 entry)
+- No paging yet
+- Bootloader-provided GDT in use
+- IDT installed at runtime
+- Exceptions handled via assembly stubs → C dispatcher
+
 ## Current baseline (Stage 2)
 
 Implemented and verified:
@@ -20,14 +28,6 @@ Implemented and verified:
 - IDT setup.
 - Basic CPU exception handling for early bring-up.
 - Exception diagnostics output to VGA text mode and COM1 serial.
-
-## Architecture snapshot (Stage 2)
-
-- 32-bit protected mode (Multiboot2 entry)
-- No paging yet
-- Bootloader-provided GDT in use
-- IDT installed at runtime
-- Exceptions handled via assembly stubs → C dispatcher
 
 ## Stage 2 highlights
 
