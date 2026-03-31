@@ -2,6 +2,19 @@ param(
     [string]$IsoPath = "out\\custom-os.iso"
 )
 
-Write-Host "Stage 0 placeholder: wire qemu-system-x86_64 command here."
-Write-Host "Expected ISO path: $IsoPath"
-exit 0
+$qemu = if ($env:QEMU_BIN) { $env:QEMU_BIN } else { "qemu-system-x86_64" }
+
+if (-not (Test-Path -Path $IsoPath)) {
+    Write-Error "ISO not found: $IsoPath"
+    Write-Host "Run 'make iso' first."
+    exit 1
+}
+
+& $qemu `
+    -cdrom $IsoPath `
+    -m 256M `
+    -serial stdio `
+    -no-reboot `
+    -no-shutdown
+
+exit $LASTEXITCODE

@@ -1,29 +1,34 @@
 # Toolchain Notes (Stage 0)
 
-Purpose: keep toolchain assumptions explicit and stable.
+Purpose: keep Stage 0 build assumptions explicit and reproducible.
 
 ## Host environment
 
 - Primary host: Windows.
-- Secondary shell option: WSL.
-- Emulation target: QEMU.
+- Preferred build shell: WSL or Linux shell.
+- Secondary shell option: PowerShell for run-only flow.
+- Emulator target: qemu-system-x86_64.
 
 ## Planned cross-toolchain
 
-- Target triple: x86_64-elf.
-- Compiler: GCC (freestanding).
-- Binutils: assembler, linker, object inspection tools.
-- Build driver: Make (placeholder in Stage 0).
+- Stage 0 entry ABI: i386 (Multiboot2 protected-mode entry).
+- Long-term architecture target: x86_64.
+- Recommended Stage 0 triple: i686-elf.
+- Compiler: i686-elf-gcc (freestanding).
+- Binutils: i686-elf-as, i686-elf-ld, i686-elf-readelf, i686-elf-objdump.
+- Build driver: GNU Make.
 
 ## Required tools checklist
 
-- [ ] x86_64-elf-gcc
-- [ ] x86_64-elf-ld
-- [ ] x86_64-elf-as
-- [ ] x86_64-elf-objdump
-- [ ] x86_64-elf-readelf
-- [ ] grub-mkrescue or equivalent ISO tooling
+- [ ] i686-elf-gcc
+- [ ] i686-elf-ld
+- [ ] i686-elf-as
+- [ ] i686-elf-objdump
+- [ ] i686-elf-readelf
+- [ ] grub-mkrescue
+- [ ] xorriso (usually required by grub-mkrescue)
 - [ ] qemu-system-x86_64
+- [ ] make
 
 ## Version and path notes
 
@@ -31,6 +36,16 @@ Purpose: keep toolchain assumptions explicit and stable.
 - Record installation source and path strategy.
 - Keep build scripts independent from global machine state where possible.
 
-## Stage 0 output
+Suggested first capture:
+- i686-elf-gcc --version
+- i686-elf-ld --version
+- grub-mkrescue --version
+- qemu-system-x86_64 --version
 
-- This document is planning-only until the first build attempt is wired.
+## Stage 0 command baseline
+
+- make help
+- make kernel
+- make iso
+- make inspect
+- make run

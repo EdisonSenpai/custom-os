@@ -1,15 +1,58 @@
-# Stage 0 placeholder build targets
+# Stage 0 build targets
 
-.PHONY: help build run clean
+.PHONY: all help check-tools kernel iso run inspect clean
+
+all: iso
 
 help:
-	@echo "Stage 0 placeholder: define build pipeline in Stage 1"
+	@echo "Targets:"
+	@echo "  make all      - Build bootable ISO"
+	@echo "  make kernel   - Build kernel ELF only"
+	@echo "  make iso      - Build GRUB bootable ISO"
+	@echo "  make run      - Build ISO and run in QEMU"
+	@echo "  make inspect  - Inspect ELF headers and symbols"
+	@echo "  make clean    - Remove build artifacts"
 
-build:
-	@echo "Stage 0 placeholder: compile and link commands not implemented"
+check-tools:
+	@command -v $(CC) >/dev/null || (echo "Missing tool: $(CC)" && exit 1)
+	@command -v $(LD) >/dev/null || (echo "Missing tool: $(LD)" && exit 1)
+	@command -v $(AS) >/dev/null || (echo "Missing tool: $(AS)" && exit 1)
+	@command -v $(GRUB_MKRESCUE) >/dev/null || (echo "Missing tool: $(GRUB_MKRESCUE)" && exit 1)
+	@command -v $(QEMU_BIN) >/dev/null || (echo "Missing tool: $(QEMU_BIN)" && exit 1)
 
-run:
-	@echo "Stage 0 placeholder: invoke scripts/run-qemu.* in Stage 1"
+$(OUT_DIR):
+	@mkdir -p $(OUT_DIR)
+
+$(ENTRY_OBJ): $(ENTRY_SRC) | $(OUT_DIR)
+	$(AS) $(ASFLAGS) -o $@ $<
+
+$(KERNEL_OBJ): $(KERNEL_SRC) | $(OUT_DIR)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(KERNEL_ELF): $(ENTRY_OBJ) $(KERNEL_OBJ) $(LINKER_SCRIPT)
+	$(LD) $(LDFLAGS) -o $@ $(ENTRY_OBJ) $(KERNEL_OBJ)
+
+kernel: check-tools $(KERNEL_ELF)
+	@echo "Built $(KERNEL_ELF)"
+
+$(BOOT_ISO): $(KERNEL_ELF) $(GRUB_CFG)
+	@mkdir -p $(ISO_DIR)/boot/grub
+	@cp $(KERNEL_ELF) $(ISO_DIR)/boot/kernel.elf
+	@cp $(GRUB_CFG) $(ISO_DIR)/boot/grub/grub.cfg
+	$(GRUB_MKRESCUE) -o $@ $(ISO_DIR)
+
+iso: check-tools $(BOOT_ISO)
+	@echo "Built $(BOOT_ISO)"
+
+run: iso
+	@sh scripts/run-qemu.sh $(BOOT_ISO)
+
+inspect: kernel
+	@echo "ELF header:"
+	@$(READELF) -h $(KERNEL_ELF)
+	@echo "Entry symbol check:"
+	@$(READELF) -s $(KERNEL_ELF) | grep stage0_start || true
 
 clean:
-	@echo "Stage 0 placeholder: define artifact cleanup in Stage 1"
+	rm -rf $(OUT_DIR)
+	@echo "Removed $(OUT_DIR)"

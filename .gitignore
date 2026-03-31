@@ -194,6 +194,12 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# custom-os generated artifacts
+out/
+
+# keep project root Makefile tracked
+!/Makefile
+
 # PyBuilder
 .pybuilder/
 target/

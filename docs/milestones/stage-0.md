@@ -2,25 +2,27 @@
 
 ## Objective
 
-Establish a clean, documented repository structure before implementation.
+Establish a reproducible build and run baseline with minimal boot-path code.
 
 ## Deliverables
 
-- [x] Repository skeleton for boot, arch, kernel, linker, build, scripts.
-- [x] Architecture decisions recorded.
-- [x] Boot assumptions and handoff notes recorded.
-- [x] Toolchain notes template added.
-- [x] Milestone tracker added.
-- [x] README upgraded to a serious project skeleton.
+- [x] Build system wired through Makefile and build/*.mk.
+- [x] Minimal freestanding kernel ELF target produced.
+- [x] GRUB configuration added.
+- [x] Bootable ISO generation added.
+- [x] QEMU run scripts wired for shell and PowerShell.
+- [x] Boot and linker assumptions documented.
+- [x] Architecture and milestone docs updated to match implementation.
 
 ## Exit criteria
 
-- Structure is small and scalable.
-- No major implementation code has been added.
-- Stage 1 can begin without renaming core directories.
+- make iso produces out/custom-os.iso.
+- make run boots GRUB and reaches Stage 0 kernel marker.
+- Documentation reflects current entry ABI and linker assumptions.
+- Scope remains limited to build and boot pipeline only.
 
 ## Deferred to Stage 1
 
-- Real linker script.
-- Real boot config and entry stubs.
-- Real build and run commands.
+- Long-mode transition for x86_64 runtime.
+- Multiboot2 tag parsing and validation policy.
+- Panic path and serial-first logging improvements.

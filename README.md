@@ -1,52 +1,69 @@
 # custom-os
 
-Stage 0 repository scaffold for a from-scratch custom OS project.
+From-scratch operating system project with a disciplined Stage 0 boot pipeline baseline.
 
-## Stage 0 status
+## Current baseline (Stage 0)
 
-- Focus: repository shape, decision records, and build/run placeholders.
-- Current state: no real kernel implementation yet.
-- Goal: make the project easy to grow safely and incrementally.
+- Build pipeline via Make.
+- Minimal freestanding kernel ELF target.
+- GRUB + Multiboot2 bootable ISO generation.
+- QEMU run scripts for WSL/Linux and Windows PowerShell.
+- Boot and linker assumptions documented before deeper kernel work.
 
-## Scope for Stage 0
+## Scope boundaries
 
-- Define a clean folder structure for boot, linker, kernel, and architecture areas.
-- Capture architecture decisions and boot handoff assumptions.
-- Add milestone planning and progress tracking docs.
-- Add placeholder build metadata and QEMU run scripts.
+Implemented in this stage:
+- Reproducible build and run path.
+- Boot artifact generation and inspection entry points.
+- Minimal visible boot marker in QEMU.
 
-## Non-goals for Stage 0
-
-- No full boot chain or kernel implementation.
-- No scheduler, memory manager, or syscall implementation.
-- No ABI-sensitive code beyond placeholder notes.
+Deliberately not implemented yet:
+- Scheduler.
+- Memory manager.
+- Filesystem.
+- Drivers.
+- Full x86_64 long-mode runtime.
 
 ## Repository map
 
-- docs/: planning and decision documents.
-- docs/milestones/: milestone definitions and stage checklists.
-- boot/: boot flow and loader-facing placeholders.
-- arch/x86_64/: architecture-specific placeholders.
-- linker/: linker-script planning placeholders.
-- kernel/: kernel subsystem placeholders.
-- build/: build variable and target placeholders.
-- scripts/: run and inspection script placeholders.
+- docs/: architecture decisions, milestone tracking, toolchain notes, and handoff assumptions.
+- boot/grub/: GRUB menu configuration.
+- arch/x86_64/: architecture entry source for Stage 0.
+- linker/: linker scripts and layout contracts.
+- kernel/init/: minimal early kernel entry in C.
+- build/: shared Make configuration and targets.
+- scripts/: QEMU run wrappers.
 
-## Stage 0 acceptance criteria
+## Build commands
 
-- Repository structure is clean and extensible.
-- Decisions are documented before implementation.
-- Boot assumptions and handoff contract are explicit.
-- Milestone tracking is available in-repo.
-- Build and QEMU entry points exist as placeholders.
+WSL/Linux shell:
 
-## Quick start (placeholder phase)
+```sh
+make help
+make iso
+make run
+```
 
-1. Review docs/architecture-decisions.md.
-2. Review docs/boot-handoff-notes.md.
-3. Update docs/milestones/stage-0.md tasks as you complete setup.
-4. Replace placeholder build and run files with real commands during Stage 1.
+Windows PowerShell:
 
-## Next stage
+```powershell
+make iso
+.\scripts\run-qemu.ps1 -IsoPath out\custom-os.iso
+```
 
-Move from planning to first bootable artifact only after Stage 0 checklist is complete.
+## Expected output
+
+- Build creates:
+	- out/kernel.elf
+	- out/custom-os.iso
+- QEMU boots GRUB and then transfers to the Stage 0 kernel.
+- Screen shows:
+	- custom-os Stage 0: boot pipeline baseline OK
+
+## Key docs
+
+- docs/architecture-decisions.md
+- docs/boot-handoff-notes.md
+- docs/toolchain-notes.md
+- docs/milestones/stage-0.md
+- docs/milestone-tracker.md
