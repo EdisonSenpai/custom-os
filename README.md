@@ -1,4 +1,4 @@
-# custom-os
+# CustomOS
 
 From-scratch operating system project with a disciplined Stage 0 boot pipeline baseline.
 
