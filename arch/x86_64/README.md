@@ -1,8 +1,20 @@
-# x86_64 Architecture Placeholder
+# x86_64 Architecture Notes
 
-Stage 0 only.
+Current status: Stage 4 baseline in 32-bit protected mode.
 
-Planned contents in later stages:
-- entry stubs
-- descriptor table setup
-- interrupt and context switch glue
+Current files in this folder:
+
+- stage0_entry.S: Multiboot2 entry path, stack setup, and fallback halt loop.
+- stage2_exceptions.S: exception stubs plus IRQ timer and keyboard stubs.
+
+Current architecture responsibilities:
+
+- CPU exception entry stubs for early bring-up diagnostics.
+- IRQ entry stubs for timer IRQ0 and keyboard IRQ1.
+- Minimal assembly-to-C dispatch glue with simple, explicit control flow.
+
+Not implemented in this folder yet:
+
+- Full x86_64 long-mode runtime entry path.
+- Context switching and scheduler assembly glue.
+- Expanded IRQ coverage beyond current groundwork.

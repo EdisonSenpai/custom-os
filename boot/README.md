@@ -1,8 +1,18 @@
-# Boot Placeholder
+# Boot Notes
 
-Stage 0 only.
+Current status: Stage 4 uses a minimal GRUB plus Multiboot2 boot path.
 
-Planned contents in later stages:
-- boot protocol integration
-- boot config
-- early entry glue
+Current responsibilities:
+
+- Provide the boot configuration used to load the kernel image.
+- Keep the handoff path deterministic for early kernel bring-up.
+
+Current layout:
+
+- grub/: GRUB menu and boot entry configuration.
+
+Not implemented yet:
+
+- Custom bootloader stages.
+- Alternative firmware boot flows.
+- Advanced boot configuration logic.

@@ -1,7 +1,17 @@
-# Linker Placeholder
+# Linker Notes
 
-Stage 0 only.
+Current status: Stage 4 still uses the initial linker script baseline.
 
-Planned contents in later stages:
-- architecture linker scripts
-- section and entry-point contracts
+Current files:
+
+- stage0.ld: linker script used for current early bring-up kernel image.
+
+Current responsibilities:
+
+- Define entry symbol and section placement for boot-time handoff.
+- Keep multiboot header and kernel sections laid out consistently for GRUB loading.
+
+Scope limits:
+
+- Current script targets early protected-mode bring-up.
+- Full x86_64 long-mode image layout work is deferred to later stages.
