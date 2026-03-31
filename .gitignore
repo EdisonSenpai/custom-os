@@ -1,6 +1,12 @@
 # Created by https://www.toptal.com/developers/gitignore/api/windows,python,java,c,c++,cmake,assembler
 # Edit at https://www.toptal.com/developers/gitignore?templates=windows,python,java,c,c++,cmake,assembler
 
+
+### Windows
+# Windows thumbnail cache files
+.github/
+.vscode/
+
 ### Assembler ###
 *.exe
 *.o
