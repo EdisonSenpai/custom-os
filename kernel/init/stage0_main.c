@@ -18,6 +18,7 @@
 #define STAGE5C_FRAME_SHIFT 12u
 #define STAGE5C_FRAME_SIZE (1ull << STAGE5C_FRAME_SHIFT)
 #define STAGE5D_TEST_ALLOC_COUNT 4u
+#define STAGE6C_MAX_PENDING_FREE 64u
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
 #define IRQ_BASE_VECTOR 0x20u
@@ -145,6 +146,8 @@ static struct idtr g_idtr;
 static struct stage5b_memory_bookkeeping g_stage5b_memory;
 static struct stage5c_frame_bookkeeping g_stage5c_frames;
 static struct stage6a_pmm_state g_stage6a_pmm;
+static uint64_t g_stage6c_pending_free_frames[STAGE6C_MAX_PENDING_FREE];
+static uint64_t g_stage6c_pending_free_count;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
@@ -642,6 +645,79 @@ int stage6b_pmm_alloc_frame(uint64_t* out_phys_addr)
 uint64_t stage6b_pmm_get_remaining_frames(void)
 {
     return g_stage6a_pmm.remaining_frame_count;
+}
+
+static int stage6c_is_eligible_frame(uint64_t frame)
+{
+    uint32_t i = 0u;
+
+    while (i < g_stage5c_frames.range_count) {
+        const struct stage5c_frame_range* range = &g_stage5c_frames.ranges[i];
+        uint64_t range_end = 0u;
+
+        if (range->frame_count == 0u) {
+            i++;
+            continue;
+        }
+
+        if (checked_add_u64(range->start_frame, range->frame_count, &range_end) != 0) {
+            range_end = UINT64_MAX;
+        }
+
+        if (frame >= range->start_frame && frame < range_end) {
+            return 1;
+        }
+
+        i++;
+    }
+
+    return 0;
+}
+
+int stage6c_pmm_free_frame(uint64_t phys_addr)
+{
+    uint64_t frame = 0u;
+    uint64_t i = 0u;
+
+    if ((phys_addr & (STAGE5C_FRAME_SIZE - 1u)) != 0u) {
+        return 0;
+    }
+
+    if (phys_addr < STAGE5B_POLICY_MIN_ADDR) {
+        return 0;
+    }
+
+    frame = phys_addr >> STAGE5C_FRAME_SHIFT;
+
+    if (stage6c_is_eligible_frame(frame) == 0) {
+        return 0;
+    }
+
+    while (i < g_stage6c_pending_free_count) {
+        if (g_stage6c_pending_free_frames[i] == frame) {
+            return 0;
+        }
+
+        i++;
+    }
+
+    if (g_stage6c_pending_free_count >= STAGE6C_MAX_PENDING_FREE) {
+        return 0;
+    }
+
+    g_stage6c_pending_free_frames[g_stage6c_pending_free_count] = frame;
+    g_stage6c_pending_free_count++;
+    return 1;
+}
+
+int stage6c_pmm_get_pending_free_frames(uint64_t* out_count)
+{
+    if (out_count == (uint64_t*)0) {
+        return 0;
+    }
+
+    *out_count = g_stage6c_pending_free_count;
+    return 1;
 }
 
 static void stage5d_run_boot_allocation_test(void)
