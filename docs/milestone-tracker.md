@@ -23,12 +23,14 @@ Purpose: one-page status view for solo progress.
 | Stage 5C - Physical frame bookkeeping groundwork | complete | TBD | Policy-usable ranges transformed into 4 KiB frame bookkeeping with stable summary markers | Serial capture with Stage 5C frame summary markers |
 | Stage 5D - Deterministic frame allocation boot test | complete | TBD | Fixed-count early-boot frame allocations emit physical addresses and remaining eligible-frame summary without Stage 4 regressions | Serial capture with Stage 5D allocation markers and ongoing Stage 4 IRQ output |
 | Stage 5 - Memory groundwork suite (5A-5D) | complete | TBD | All Stage 5 sub-stages verified independently and together | Stage 5A through Stage 5D evidence set |
+| Stage 6A - PMM state formalization and internal cleanup | complete | TBD | PMM allocator internals are reorganized with explicit state boundaries while preserving Stage 5D boot-test behavior and outputs | QEMU validation: successful build and boot, intact Stage 5A/5B/5C and Stage 5D markers, ongoing Stage 4 IRQ output, no regressions |
 
 ## Current focus
 
 - Stage 5A through Stage 5D are complete and verified.
 - Full Stage 5 is complete.
-- Next focus: define Stage 6 scope before implementation begins.
+- Stage 6A internal PMM cleanup is complete and validated.
+- Next focus is Stage 6B planning and design only; implementation has not started.
 
 ## Weekly update template
 
@@ -39,12 +41,16 @@ Purpose: one-page status view for solo progress.
   - Stage 5B memory accounting and policy filtering
   - Stage 5C physical frame bookkeeping groundwork
   - Stage 5D deterministic frame allocation boot test (validated)
+  - Stage 6A PMM internal cleanup completed and validated (behavior preserved, no regressions)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 6 scope definition and review
+  - Stage 6B planning and design only (scope, interfaces, validation strategy)
+  - No Stage 6B implementation work yet
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
+  - Stage 6A kept allocator behavior unchanged by design and validated against existing Stage 5D and Stage 4 markers
+  - Stage 6B remains intentionally unstarted pending planning/design completion

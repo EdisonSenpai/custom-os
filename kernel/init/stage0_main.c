@@ -103,12 +103,20 @@ struct stage5c_frame_bookkeeping {
     struct stage5c_frame_range ranges[STAGE5C_MAX_RANGES];
 };
 
-struct stage5d_allocator_state {
-    uint32_t initialized;
-    uint32_t cursor_range;
-    uint64_t next_frame;
-    uint64_t remaining_frames;
-    uint64_t allocations_issued;
+/*
+ * Stage 6A PMM invariants:
+ * - is_initialized is 0 or 1.
+ * - range_index is in [0, g_stage5c_frames.range_count].
+ * - if range_index < range_count, next_frame_index is at or after that range start.
+ * - remaining_frame_count never increases after seeding.
+ * - allocation order is deterministic by range order then frame index.
+ */
+struct stage6a_pmm_state {
+    uint32_t is_initialized;
+    uint32_t range_index;
+    uint64_t next_frame_index;
+    uint64_t remaining_frame_count;
+    uint64_t allocation_count;
 };
 
 struct stage5_parse_totals {
@@ -136,7 +144,7 @@ static struct idt_entry g_idt[IDT_ENTRIES];
 static struct idtr g_idtr;
 static struct stage5b_memory_bookkeeping g_stage5b_memory;
 static struct stage5c_frame_bookkeeping g_stage5c_frames;
-static struct stage5d_allocator_state g_stage5d_allocator;
+static struct stage6a_pmm_state g_stage6a_pmm;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
@@ -539,23 +547,23 @@ static void stage5c_prepare_frame_bookkeeping(void)
     stage5c_emit_summary();
 }
 
-static void stage5d_reset_allocator_state(void)
+static void stage6a_pmm_reset_state(void)
 {
-    g_stage5d_allocator.initialized = 0u;
-    g_stage5d_allocator.cursor_range = 0u;
-    g_stage5d_allocator.next_frame = 0u;
-    g_stage5d_allocator.remaining_frames = 0u;
-    g_stage5d_allocator.allocations_issued = 0u;
+    g_stage6a_pmm.is_initialized = 0u;
+    g_stage6a_pmm.range_index = 0u;
+    g_stage6a_pmm.next_frame_index = 0u;
+    g_stage6a_pmm.remaining_frame_count = 0u;
+    g_stage6a_pmm.allocation_count = 0u;
 }
 
-static void stage5d_advance_cursor(void)
+static void stage6a_pmm_advance_to_next_eligible(void)
 {
-    while (g_stage5d_allocator.cursor_range < g_stage5c_frames.range_count) {
-        const struct stage5c_frame_range* range = &g_stage5c_frames.ranges[g_stage5d_allocator.cursor_range];
+    while (g_stage6a_pmm.range_index < g_stage5c_frames.range_count) {
+        const struct stage5c_frame_range* range = &g_stage5c_frames.ranges[g_stage6a_pmm.range_index];
         uint64_t range_end_frame = 0u;
 
         if (range->frame_count == 0u) {
-            g_stage5d_allocator.cursor_range++;
+            g_stage6a_pmm.range_index++;
             continue;
         }
 
@@ -563,35 +571,35 @@ static void stage5d_advance_cursor(void)
             range_end_frame = UINT64_MAX;
         }
 
-        if (g_stage5d_allocator.next_frame < range->start_frame) {
-            g_stage5d_allocator.next_frame = range->start_frame;
+        if (g_stage6a_pmm.next_frame_index < range->start_frame) {
+            g_stage6a_pmm.next_frame_index = range->start_frame;
         }
 
-        if (g_stage5d_allocator.next_frame < range_end_frame) {
+        if (g_stage6a_pmm.next_frame_index < range_end_frame) {
             break;
         }
 
-        g_stage5d_allocator.cursor_range++;
+        g_stage6a_pmm.range_index++;
     }
 }
 
-static void stage5d_allocator_init_from_stage5c(void)
+static void stage6a_pmm_seed_from_stage5c(void)
 {
-    stage5d_reset_allocator_state();
+    stage6a_pmm_reset_state();
 
-    g_stage5d_allocator.remaining_frames = g_stage5c_frames.eligible_frames;
+    g_stage6a_pmm.remaining_frame_count = g_stage5c_frames.eligible_frames;
 
     if (g_stage5c_frames.range_count == 0u || g_stage5c_frames.eligible_frames == 0u) {
-        g_stage5d_allocator.initialized = 1u;
+        g_stage6a_pmm.is_initialized = 1u;
         return;
     }
 
-    g_stage5d_allocator.next_frame = g_stage5c_frames.ranges[0].start_frame;
-    stage5d_advance_cursor();
-    g_stage5d_allocator.initialized = 1u;
+    g_stage6a_pmm.next_frame_index = g_stage5c_frames.ranges[0].start_frame;
+    stage6a_pmm_advance_to_next_eligible();
+    g_stage6a_pmm.is_initialized = 1u;
 }
 
-static int stage5d_try_allocate_frame(uint64_t* out_phys_addr)
+static int stage6a_pmm_try_allocate_frame(uint64_t* out_phys_addr)
 {
     uint64_t frame = 0u;
 
@@ -599,24 +607,24 @@ static int stage5d_try_allocate_frame(uint64_t* out_phys_addr)
         return 0;
     }
 
-    if (g_stage5d_allocator.initialized == 0u) {
-        stage5d_allocator_init_from_stage5c();
+    if (g_stage6a_pmm.is_initialized == 0u) {
+        stage6a_pmm_seed_from_stage5c();
     }
 
-    if (g_stage5d_allocator.remaining_frames == 0u) {
+    if (g_stage6a_pmm.remaining_frame_count == 0u) {
         return 0;
     }
 
-    stage5d_advance_cursor();
+    stage6a_pmm_advance_to_next_eligible();
 
-    if (g_stage5d_allocator.cursor_range >= g_stage5c_frames.range_count) {
+    if (g_stage6a_pmm.range_index >= g_stage5c_frames.range_count) {
         return 0;
     }
 
-    frame = g_stage5d_allocator.next_frame;
-    g_stage5d_allocator.next_frame = frame + 1u;
-    g_stage5d_allocator.remaining_frames--;
-    g_stage5d_allocator.allocations_issued = add_clamp_u64(g_stage5d_allocator.allocations_issued, 1u);
+    frame = g_stage6a_pmm.next_frame_index;
+    g_stage6a_pmm.next_frame_index = frame + 1u;
+    g_stage6a_pmm.remaining_frame_count--;
+    g_stage6a_pmm.allocation_count = add_clamp_u64(g_stage6a_pmm.allocation_count, 1u);
 
     if (frame > (UINT64_MAX >> STAGE5C_FRAME_SHIFT)) {
         return 0;
@@ -631,7 +639,7 @@ static void stage5d_run_boot_allocation_test(void)
     uint32_t granted = 0u;
     uint32_t i = 0u;
 
-    stage5d_allocator_init_from_stage5c();
+    stage6a_pmm_seed_from_stage5c();
 
     serial_write_text("custom-os Stage 5D: deterministic frame allocation test\n");
     serial_write_label_hex("custom-os Stage 5D alloc request count: ", STAGE5D_TEST_ALLOC_COUNT);
@@ -639,7 +647,7 @@ static void stage5d_run_boot_allocation_test(void)
     while (i < STAGE5D_TEST_ALLOC_COUNT) {
         uint64_t phys_addr = 0u;
 
-        if (stage5d_try_allocate_frame(&phys_addr) == 0) {
+        if (stage6a_pmm_try_allocate_frame(&phys_addr) == 0) {
             break;
         }
 
@@ -650,7 +658,7 @@ static void stage5d_run_boot_allocation_test(void)
     }
 
     serial_write_label_hex("custom-os Stage 5D alloc granted: ", granted);
-    serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", g_stage5d_allocator.remaining_frames);
+    serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", g_stage6a_pmm.remaining_frame_count);
 }
 
 static void pic_send_eoi(uint8_t irq)
