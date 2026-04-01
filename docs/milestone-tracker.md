@@ -30,15 +30,16 @@ Purpose: one-page status view for solo progress.
 - Week of: 2026-04-01
 
 - Completed:
-    -- Stage 5A implemented (Multiboot2 memory map parsing)
-    -- Safe tag walking + validation
-    -- Serial output for memory regions
+  - Stage 5A implemented (Multiboot2 memory map parsing)
+  - Safe tag walking + validation
+  - Serial output for memory regions
 
--Blockers:  -- None
+- Blockers:
+  - None
 
--Next focus:
-    -- Validate Stage 5A output in QEMU
-    -- Prepare Stage 5B memory accounting
+- Next focus:
+  - Validate Stage 5A output in QEMU
+  - Prepare Stage 5B memory accounting
 
--Risk changes:
-    -- Memory parsing verified as stable base for allocator work
+- Risk changes:
+  - Memory parsing verified as stable base for allocator work
