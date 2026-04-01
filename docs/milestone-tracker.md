@@ -20,11 +20,13 @@ Purpose: one-page status view for solo progress.
 | Stage 4 - Keyboard IRQ groundwork | complete | TBD | IRQ1 receives keyboard events, raw scancodes printed to serial, timer and keyboard IRQs coexist | Serial capture showing ticks and scancodes |
 | Stage 5A - Multiboot2 memory map parsing | complete | TBD | Memory map tag located and parsed with serial region summary output | Serial capture with parsed entries and usable summary |
 | Stage 5B - Memory accounting / usable RAM summary | complete | TBD | Raw and policy-filtered RAM accounting summaries emitted with stable bookkeeping view | Serial capture with Stage 5B summary markers |
+| Stage 5C - Physical frame bookkeeping groundwork | complete | TBD | Policy-usable ranges transformed into 4 KiB frame bookkeeping with stable summary markers | Serial capture with Stage 5C frame summary markers |
 
 ## Current focus
 
-- Stage 5A and Stage 5B are complete and verified.
-- Hold Stage 5C and Stage 5D until allocator scope is explicitly approved.
+- Stage 5A, Stage 5B, and Stage 5C are complete and verified.
+- Full Stage 5 is not complete until Stage 5D is implemented and verified.
+- Next focus: Stage 5D frame allocation behavior and validation.
 
 ## Weekly update template
 
@@ -33,13 +35,13 @@ Purpose: one-page status view for solo progress.
 - Completed:
   - Stage 5A memory map parsing
   - Stage 5B memory accounting and policy filtering
-  - Safe parsing and accounting separation
+  - Stage 5C physical frame bookkeeping groundwork
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 5C allocator design approval
+  - Stage 5D allocation behavior and validation
 
 - Risk changes:
-  - Memory parsing verified as stable base for allocator work
+  - Stage 5 frame groundwork is stable, but full Stage 5 completion still depends on Stage 5D outcomes

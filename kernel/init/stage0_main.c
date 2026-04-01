@@ -14,6 +14,9 @@
 #define STAGE5B_POLICY_MIN_ADDR 0x00100000ull
 #define STAGE5B_REGION_FLAG_RAW_USABLE 0x01u
 #define STAGE5B_REGION_FLAG_POLICY_USABLE 0x02u
+#define STAGE5C_MAX_RANGES 128u
+#define STAGE5C_FRAME_SHIFT 12u
+#define STAGE5C_FRAME_SIZE (1ull << STAGE5C_FRAME_SHIFT)
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
 #define IRQ_BASE_VECTOR 0x20u
@@ -85,6 +88,20 @@ struct stage5b_memory_bookkeeping {
     struct stage5b_region regions[STAGE5B_MAX_REGIONS];
 };
 
+struct stage5c_frame_range {
+    uint64_t start_frame;
+    uint64_t frame_count;
+};
+
+struct stage5c_frame_bookkeeping {
+    uint32_t range_count;
+    uint32_t dropped_ranges;
+    uint64_t eligible_frames;
+    uint64_t highest_eligible_frame;
+    uint64_t highest_eligible_addr;
+    struct stage5c_frame_range ranges[STAGE5C_MAX_RANGES];
+};
+
 struct stage5_parse_totals {
     uint32_t entry_count;
     uint32_t usable_regions;
@@ -109,6 +126,7 @@ struct idtr {
 static struct idt_entry g_idt[IDT_ENTRIES];
 static struct idtr g_idtr;
 static struct stage5b_memory_bookkeeping g_stage5b_memory;
+static struct stage5c_frame_bookkeeping g_stage5c_frames;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
@@ -398,6 +416,117 @@ static void stage5b_emit_summary(const struct stage5_parse_totals* totals)
     serial_write_label_hex64("custom-os Stage 5B policy usable bytes: ", g_stage5b_memory.policy_usable_bytes);
     serial_write_label_hex64("custom-os Stage 5B policy unavailable bytes: ", policy_unusable_bytes);
     serial_write_label_hex64("custom-os Stage 5B highest usable end: ", g_stage5b_memory.highest_usable_end);
+}
+
+static void stage5c_reset_bookkeeping(void)
+{
+    g_stage5c_frames.range_count = 0u;
+    g_stage5c_frames.dropped_ranges = 0u;
+    g_stage5c_frames.eligible_frames = 0u;
+    g_stage5c_frames.highest_eligible_frame = 0u;
+    g_stage5c_frames.highest_eligible_addr = 0u;
+}
+
+static void stage5c_record_range(uint64_t start_frame, uint64_t frame_count)
+{
+    const uint32_t index = g_stage5c_frames.range_count;
+
+    if (index >= STAGE5C_MAX_RANGES) {
+        g_stage5c_frames.dropped_ranges++;
+        return;
+    }
+
+    g_stage5c_frames.ranges[index].start_frame = start_frame;
+    g_stage5c_frames.ranges[index].frame_count = frame_count;
+    g_stage5c_frames.range_count = index + 1u;
+}
+
+static uint64_t stage5c_align_up_4k(uint64_t value, uint32_t* overflow)
+{
+    uint64_t rounded = 0u;
+
+    if (checked_add_u64(value, STAGE5C_FRAME_SIZE - 1u, &rounded) != 0) {
+        *overflow = 1u;
+        return UINT64_MAX;
+    }
+
+    *overflow = 0u;
+    return rounded & ~(STAGE5C_FRAME_SIZE - 1u);
+}
+
+static void stage5c_emit_summary(void)
+{
+    serial_write_label_hex("custom-os Stage 5C range count: ", g_stage5c_frames.range_count);
+    serial_write_label_hex64("custom-os Stage 5C eligible frames: ", g_stage5c_frames.eligible_frames);
+    serial_write_label_hex64("custom-os Stage 5C highest eligible frame: ", g_stage5c_frames.highest_eligible_frame);
+    serial_write_label_hex64("custom-os Stage 5C highest eligible address: ", g_stage5c_frames.highest_eligible_addr);
+}
+
+static void stage5c_prepare_frame_bookkeeping(void)
+{
+    uint32_t i = 0u;
+
+    stage5c_reset_bookkeeping();
+
+    while (i < g_stage5b_memory.region_count) {
+        const struct stage5b_region* region = &g_stage5b_memory.regions[i];
+        uint64_t start_addr = region->base_addr;
+        uint64_t end_addr = region->end_addr;
+        uint64_t frame_count = 0u;
+        uint64_t start_frame = 0u;
+        uint64_t highest_frame_addr = 0u;
+        uint64_t highest_frame = 0u;
+        uint32_t overflow = 0u;
+
+        if ((region->flags & STAGE5B_REGION_FLAG_POLICY_USABLE) == 0u) {
+            i++;
+            continue;
+        }
+
+        if (region->multiboot_type != MULTIBOOT2_MEMORY_AVAILABLE) {
+            i++;
+            continue;
+        }
+
+        if (start_addr < STAGE5B_POLICY_MIN_ADDR) {
+            start_addr = STAGE5B_POLICY_MIN_ADDR;
+        }
+
+        if (end_addr <= start_addr) {
+            i++;
+            continue;
+        }
+
+        start_addr = stage5c_align_up_4k(start_addr, &overflow);
+        if (overflow != 0u) {
+            i++;
+            continue;
+        }
+
+        end_addr &= ~(STAGE5C_FRAME_SIZE - 1u);
+
+        if (end_addr <= start_addr) {
+            i++;
+            continue;
+        }
+
+        frame_count = (end_addr - start_addr) >> STAGE5C_FRAME_SHIFT;
+        start_frame = start_addr >> STAGE5C_FRAME_SHIFT;
+        highest_frame_addr = end_addr - STAGE5C_FRAME_SIZE;
+        highest_frame = highest_frame_addr >> STAGE5C_FRAME_SHIFT;
+
+        stage5c_record_range(start_frame, frame_count);
+        g_stage5c_frames.eligible_frames = add_clamp_u64(g_stage5c_frames.eligible_frames, frame_count);
+
+        if (highest_frame > g_stage5c_frames.highest_eligible_frame) {
+            g_stage5c_frames.highest_eligible_frame = highest_frame;
+            g_stage5c_frames.highest_eligible_addr = highest_frame_addr;
+        }
+
+        i++;
+    }
+
+    stage5c_emit_summary();
 }
 
 static void pic_send_eoi(uint8_t irq)
@@ -716,6 +845,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     }
 
     stage5a_parse_mmap(mb2_info_addr);
+    stage5c_prepare_frame_bookkeeping();
 
     idt_install();
     pic_remap((uint8_t)IRQ_BASE_VECTOR, (uint8_t)(IRQ_BASE_VECTOR + 8u));
