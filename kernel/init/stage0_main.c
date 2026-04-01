@@ -46,6 +46,10 @@
 #define STAGE2_FORCE_EXCEPTION 0
 #endif
 
+#ifndef STAGE6D_FORCE_REUSE_TEST
+#define STAGE6D_FORCE_REUSE_TEST 0
+#endif
+
 static volatile uint32_t g_timer_ticks = 0u;
 
 struct multiboot2_info_header {
@@ -150,6 +154,7 @@ static uint64_t g_stage6c_pending_free_frames[STAGE6C_MAX_PENDING_FREE];
 static uint64_t g_stage6c_pending_free_count;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
+static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -639,6 +644,10 @@ static int stage6a_pmm_try_allocate_frame(uint64_t* out_phys_addr)
 
 int stage6b_pmm_alloc_frame(uint64_t* out_phys_addr)
 {
+    if (stage6d_pmm_try_allocate_reused_frame(out_phys_addr) != 0) {
+        return 1;
+    }
+
     return stage6a_pmm_try_allocate_frame(out_phys_addr);
 }
 
@@ -647,7 +656,56 @@ uint64_t stage6b_pmm_get_remaining_frames(void)
     return g_stage6a_pmm.remaining_frame_count;
 }
 
-static int stage6c_is_eligible_frame(uint64_t frame)
+static int stage6d_pmm_pop_pending_free_fifo(uint64_t* out_frame)
+{
+    uint64_t i = 0u;
+
+    if (out_frame == (uint64_t*)0) {
+        return 0;
+    }
+
+    if (g_stage6c_pending_free_count == 0u) {
+        return 0;
+    }
+
+    *out_frame = g_stage6c_pending_free_frames[0];
+
+    while ((i + 1u) < g_stage6c_pending_free_count) {
+        g_stage6c_pending_free_frames[i] = g_stage6c_pending_free_frames[i + 1u];
+        i++;
+    }
+
+    g_stage6c_pending_free_count--;
+    return 1;
+}
+
+static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr)
+{
+    uint64_t frame = 0u;
+
+    if (out_phys_addr == (uint64_t*)0) {
+        return 0;
+    }
+
+    if (g_stage6a_pmm.remaining_frame_count == 0u) {
+        return 0;
+    }
+
+    if (stage6d_pmm_pop_pending_free_fifo(&frame) == 0) {
+        return 0;
+    }
+
+    if (frame > (UINT64_MAX >> STAGE5C_FRAME_SHIFT)) {
+        return 0;
+    }
+
+    g_stage6a_pmm.remaining_frame_count--;
+    g_stage6a_pmm.allocation_count = add_clamp_u64(g_stage6a_pmm.allocation_count, 1u);
+    *out_phys_addr = frame << STAGE5C_FRAME_SHIFT;
+    return 1;
+}
+
+static int stage6d_pmm_find_frame_range(uint64_t frame, uint32_t* out_range_index)
 {
     uint32_t i = 0u;
 
@@ -665,6 +723,10 @@ static int stage6c_is_eligible_frame(uint64_t frame)
         }
 
         if (frame >= range->start_frame && frame < range_end) {
+            if (out_range_index != (uint32_t*)0) {
+                *out_range_index = i;
+            }
+
             return 1;
         }
 
@@ -672,6 +734,38 @@ static int stage6c_is_eligible_frame(uint64_t frame)
     }
 
     return 0;
+}
+
+static int stage6c_is_eligible_frame(uint64_t frame)
+{
+    return stage6d_pmm_find_frame_range(frame, (uint32_t*)0);
+}
+
+static int stage6d_pmm_was_frame_issued(uint64_t frame)
+{
+    uint32_t frame_range_index = 0u;
+
+    if (g_stage6a_pmm.is_initialized == 0u) {
+        return 0;
+    }
+
+    if (stage6d_pmm_find_frame_range(frame, &frame_range_index) == 0) {
+        return 0;
+    }
+
+    if (g_stage6a_pmm.range_index >= g_stage5c_frames.range_count) {
+        return 1;
+    }
+
+    if (frame_range_index < g_stage6a_pmm.range_index) {
+        return 1;
+    }
+
+    if (frame_range_index > g_stage6a_pmm.range_index) {
+        return 0;
+    }
+
+    return frame < g_stage6a_pmm.next_frame_index;
 }
 
 int stage6c_pmm_free_frame(uint64_t phys_addr)
@@ -693,6 +787,10 @@ int stage6c_pmm_free_frame(uint64_t phys_addr)
         return 0;
     }
 
+    if (stage6d_pmm_was_frame_issued(frame) == 0) {
+        return 0;
+    }
+
     while (i < g_stage6c_pending_free_count) {
         if (g_stage6c_pending_free_frames[i] == frame) {
             return 0;
@@ -707,6 +805,7 @@ int stage6c_pmm_free_frame(uint64_t phys_addr)
 
     g_stage6c_pending_free_frames[g_stage6c_pending_free_count] = frame;
     g_stage6c_pending_free_count++;
+    g_stage6a_pmm.remaining_frame_count = add_clamp_u64(g_stage6a_pmm.remaining_frame_count, 1u);
     return 1;
 }
 
@@ -719,6 +818,100 @@ int stage6c_pmm_get_pending_free_frames(uint64_t* out_count)
     *out_count = g_stage6c_pending_free_count;
     return 1;
 }
+
+#if STAGE6D_FORCE_REUSE_TEST
+static void stage6d_emit_test_result(const char* check_name, int passed)
+{
+    serial_write_text("custom-os Stage 6D test ");
+    serial_write_text(check_name);
+    serial_write_text(": ");
+
+    if (passed != 0) {
+        serial_write_text("PASS\n");
+    } else {
+        serial_write_text("FAIL\n");
+    }
+}
+
+static void stage6d_run_reuse_self_test(void)
+{
+    uint64_t alloc_a = 0u;
+    uint64_t alloc_b = 0u;
+    uint64_t reuse_a = 0u;
+    uint64_t reuse_b = 0u;
+    uint64_t never_issued_addr = 0u;
+    uint64_t pending_count = 0u;
+    int check = 0;
+    int all_passed = 1;
+
+    serial_write_text("custom-os Stage 6D test: start\n");
+
+    check = (stage6b_pmm_alloc_frame(&alloc_a) != 0)
+        && (stage6b_pmm_alloc_frame(&alloc_b) != 0)
+        && (alloc_a != alloc_b);
+    stage6d_emit_test_result("alloc A/B", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6c_pmm_free_frame(alloc_a) != 0);
+    stage6d_emit_test_result("free A accept", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6c_pmm_free_frame(alloc_b) != 0);
+    stage6d_emit_test_result("free B accept", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6c_pmm_free_frame(alloc_a) == 0);
+    stage6d_emit_test_result("duplicate free reject", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    stage6a_pmm_advance_to_next_eligible();
+    if (g_stage6a_pmm.range_index < g_stage5c_frames.range_count
+        && g_stage6a_pmm.next_frame_index <= (UINT64_MAX >> STAGE5C_FRAME_SHIFT)) {
+        never_issued_addr = g_stage6a_pmm.next_frame_index << STAGE5C_FRAME_SHIFT;
+        check = (stage6c_pmm_free_frame(never_issued_addr) == 0);
+    } else {
+        check = 0;
+    }
+
+    stage6d_emit_test_result("never-issued reject", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6c_pmm_get_pending_free_frames(&pending_count) != 0)
+        && (pending_count == 2u);
+    stage6d_emit_test_result("pending count after free", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6b_pmm_alloc_frame(&reuse_a) != 0)
+        && (stage6b_pmm_alloc_frame(&reuse_b) != 0)
+        && (reuse_a == alloc_a)
+        && (reuse_b == alloc_b);
+    stage6d_emit_test_result("fifo reuse order", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    check = (stage6c_pmm_get_pending_free_frames(&pending_count) != 0)
+        && (pending_count == 0u);
+    stage6d_emit_test_result("pending drained", check);
+    if (check == 0) {
+        all_passed = 0;
+    }
+
+    stage6d_emit_test_result("overall", all_passed);
+}
+#endif
 
 static void stage5d_run_boot_allocation_test(void)
 {
@@ -973,7 +1166,7 @@ void stage3_irq0_handler(void)
     g_timer_ticks++;
 
     if ((g_timer_ticks % PIT_TARGET_HZ) == 0u) {
-        serial_write_label_hex("custom-os Stage 5 tick: ", g_timer_ticks);
+        serial_write_label_hex("custom-os Stage 6 tick: ", g_timer_ticks);
     }
 
     pic_send_eoi(0u);
@@ -983,7 +1176,7 @@ void stage4_irq1_handler(void)
 {
     const uint8_t scancode = inb(0x60u);
 
-    serial_write_label_hex("custom-os Stage 5 scancode: ", (uint32_t)scancode);
+    serial_write_label_hex("custom-os Stage 6 scancode: ", (uint32_t)scancode);
     pic_send_eoi(1u);
 }
 
@@ -994,12 +1187,12 @@ __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail)
     format_hex32(detail, detail_hex);
     clear_screen();
 
-    write_text("custom-os Stage 5 PANIC", 0);
+    write_text("custom-os Stage 6 PANIC", 0);
     write_text(reason, 1);
     write_text("detail:", 2);
     write_text_at(detail_hex, 2, 8);
 
-    serial_write_text("custom-os Stage 5 PANIC\n");
+    serial_write_text("custom-os Stage 6 PANIC\n");
     serial_write_text(reason);
     serial_write_text("\n");
     serial_write_text("detail: ");
@@ -1047,8 +1240,8 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     clear_screen();
     serial_init();
 
-    write_text("custom-os Stage 5: init start", 0);
-    serial_write_text("custom-os Stage 5: init start\n");
+    write_text("custom-os Stage 6: init start", 0);
+    serial_write_text("custom-os Stage 6: init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -1066,26 +1259,30 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage5c_prepare_frame_bookkeeping();
     stage5d_run_boot_allocation_test();
 
+#if STAGE6D_FORCE_REUSE_TEST
+    stage6d_run_reuse_self_test();
+#endif
+
     idt_install();
     pic_remap((uint8_t)IRQ_BASE_VECTOR, (uint8_t)(IRQ_BASE_VECTOR + 8u));
     pic_set_masks(0xFCu, 0xFFu);
     pit_init(PIT_TARGET_HZ);
 
-    write_text("custom-os Stage 5: Multiboot2 handoff OK", 1);
-    write_text("custom-os Stage 5: IDT installed", 2);
-    write_text("custom-os Stage 5: PIC remapped + PIT started", 3);
-    write_text("custom-os Stage 5: deterministic init OK", 4);
+    write_text("custom-os Stage 6: Multiboot2 handoff OK", 1);
+    write_text("custom-os Stage 6: IDT installed", 2);
+    write_text("custom-os Stage 6: PIC remapped + PIT started", 3);
+    write_text("custom-os Stage 6: deterministic init OK", 4);
 
-    serial_write_text("custom-os Stage 5: Multiboot2 handoff OK\n");
-    serial_write_text("custom-os Stage 5: IDT installed\n");
-    serial_write_text("custom-os Stage 5: PIC remapped + PIT started\n");
-    serial_write_text("custom-os Stage 5: deterministic init OK\n");
+    serial_write_text("custom-os Stage 6: Multiboot2 handoff OK\n");
+    serial_write_text("custom-os Stage 6: IDT installed\n");
+    serial_write_text("custom-os Stage 6: PIC remapped + PIT started\n");
+    serial_write_text("custom-os Stage 6: deterministic init OK\n");
 
     __asm__ volatile ("sti");
 
 #if STAGE2_FORCE_EXCEPTION
-    write_text("custom-os Stage 5: triggering INT3 test", 6);
-    serial_write_text("custom-os Stage 5: triggering INT3 test\n");
+    write_text("custom-os Stage 6: triggering INT3 test", 6);
+    serial_write_text("custom-os Stage 6: triggering INT3 test\n");
     __asm__ volatile ("int3");
 #endif
 }

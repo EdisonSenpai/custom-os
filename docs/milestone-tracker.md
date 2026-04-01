@@ -26,15 +26,16 @@ Purpose: one-page status view for solo progress.
 | Stage 6A - PMM state formalization and internal cleanup | complete | TBD | PMM allocator internals are reorganized with explicit state boundaries while preserving Stage 5D boot-test behavior and outputs | QEMU validation: successful build and boot, intact Stage 5A/5B/5C and Stage 5D markers, ongoing Stage 4 IRQ output, no regressions |
 | Stage 6B - PMM public allocation API surface | complete | TBD | Export narrow PMM allocation API (`stage6b_pmm_alloc_frame`, `stage6b_pmm_get_remaining_frames`) while preserving deterministic behavior and Stage 5D smoke-test outputs | QEMU validation: build and boot succeeded; Stage 5A/5B/5C output intact; Stage 5D deterministic output intact; allocated frame addresses unchanged; remaining eligible-frame count correct; Stage 4 timer+keyboard IRQ output continues after Stage 5D; no regressions. |
 | Stage 6C - PMM minimal free API and pending-free tracking | complete | TBD | Export stage6c_pmm_free_frame and stage6c_pmm_get_pending_free_frames; validate free inputs and record deterministic pending-free entries only; no reuse activation and no allocation-path behavior change | QEMU validation: build and boot succeeded; Stage 5A/5B/5C output intact; Stage 5D deterministic allocation output intact; allocated frame addresses unchanged; remaining eligible-frame count correct; Stage 4 timer+keyboard IRQ output continued after Stage 5D; no regressions. |
+| Stage 6D - Deterministic pending-free reuse activation and validation | complete | TBD | Activate FIFO reuse from pending-free frames before fresh allocation, add minimal already-issued free check, and preserve baseline Stage 5D/6B behavior when reuse is not exercised | QEMU validation: dedicated Stage 6D reuse self-test passed with PASS markers for alloc A/B, free A accept, free B accept, duplicate free reject, never-issued reject, pending count after free, fifo reuse order, pending drained, and overall; baseline Stage 5A/5B/5C and Stage 5D outputs remained intact with no regressions. |
+| Stage 6 - PMM lifecycle baseline (6A-6D) | complete | TBD | Stage 6A through Stage 6D delivered explicit PMM state, minimal alloc/free APIs, deterministic pending-free tracking, FIFO reuse activation, and validated reuse self-test behavior | Stage 6A, Stage 6B, Stage 6C, and Stage 6D evidence set |
 
 ## Current focus
 
 - Stage 5A through Stage 5D are complete and verified.
 - Full Stage 5 is complete.
-- Stage 6A internal PMM cleanup is complete and validated.
-- Stage 6B PMM public API surface is complete and validated.
-- Stage 6C minimal free API and pending-free tracking is complete and validated.
-- Stage 6D is not started; current focus is Stage 6D planning/design only.
+- Stage 6A through Stage 6D are complete and validated.
+- Full Stage 6 is complete.
+- Next focus: Stage 7 planning only (paging groundwork definition), with no Stage 7 implementation started.
 
 ## Weekly update template
 
@@ -48,18 +49,21 @@ Purpose: one-page status view for solo progress.
   - Stage 6A PMM internal cleanup completed and validated (behavior preserved, no regressions)
   - Stage 6B PMM public API surface completed and validated (behavior preserved, no regressions)
   - Stage 6C minimal PMM free API and deterministic pending-free tracking completed and validated (no reuse activation, no regressions)
+  - Stage 6D deterministic FIFO reuse activation completed and validated (baseline path stable, no regressions)
+  - Stage 6D dedicated reuse self-test passed in QEMU (accept/reject/FIFO checks all PASS)
+  - Stage 6 aggregate completion achieved (6A through 6D)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 6D planning/design only: define pending-free reuse activation policy and deterministic ordering rules
-  - Stage 6D planning/design only: define safety checks and invariants for transitioning pending frees into reusable allocator supply
-  - Stage 6D planning/design only: define validation matrix and regression gates before implementation begins
-  - No Stage 6D implementation in this cycle
+  - Stage 7 planning only: define paging groundwork scope and interfaces
+  - Stage 7 planning only: define validation gates before implementation starts
+  - Keep allocator behavior stable while Stage 7 planning is drafted
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
   - Stage 6A kept allocator behavior unchanged by design and validated against existing Stage 5D and Stage 4 markers
   - Stage 6B validation completed with no regressions
-  - Stage 6C validation completed with no regressions; Stage 6D remains planning/design only
+  - Stage 6C validation completed with no regressions
+  - Stage 6D validation completed with no regressions; reuse activation remains minimal and deterministic

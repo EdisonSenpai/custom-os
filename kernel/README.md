@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 5 early kernel groundwork is active.
+Current status: Stage 6 early kernel baseline is active.
 
 Current implementation location:
 
@@ -18,6 +18,9 @@ Current capabilities:
 - Stage 5B RAM accounting summaries (raw and policy-usable).
 - Stage 5C frame-range bookkeeping groundwork.
 - Stage 5D deterministic boot-time frame allocation smoke test.
+- Stage 6B minimal exported PMM allocation API.
+- Stage 6C minimal exported PMM free API with deterministic pending-free tracking.
+- Stage 6D deterministic FIFO reuse activation with dedicated self-test path.
 
 Not implemented yet:
 

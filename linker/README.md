@@ -1,6 +1,6 @@
 # Linker Notes
 
-Current status: Stage 5 still uses the same linker script baseline.
+Current status: Stage 6 still uses the same linker script baseline.
 
 Current files:
 

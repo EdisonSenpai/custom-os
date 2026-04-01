@@ -12,8 +12,9 @@
 - stage-6a.md: complete, PMM internal cleanup and state formalization with behavior-preserving validation.
 - stage-6b.md: complete, PMM public API surface validated in QEMU with behavior preserved and no regressions.
 - stage-6c.md: complete, minimal PMM free API and deterministic pending-free tracking validated in QEMU with no allocation-path regressions.
+- stage-6d.md: complete, deterministic pending-free FIFO reuse activation validated in QEMU, including dedicated self-test PASS markers.
 
-Current focus: Stage 6C complete and validated; Stage 6D unstarted; Stage 6D planning/design only.
+Current focus: Stage 6 complete; Stage 7 planning only (paging groundwork definition), with no Stage 7 implementation started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
-Stage 6 is split into 6A, 6B, 6C, and 6D. Stage 6A, Stage 6B, and Stage 6C are complete and validated; Stage 6D is unstarted and in planning/design only.
+Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
