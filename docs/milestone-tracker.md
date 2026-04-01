@@ -18,28 +18,28 @@ Purpose: one-page status view for solo progress.
 | Stage 2 - Exceptions and IDT groundwork | complete | TBD | IDT installed, core exception dispatch works, forced INT3 reaches diagnostics | Exception screen plus serial capture |
 | Stage 3 - Timer IRQ groundwork | complete | TBD | PIC remap + IRQ0 + PIT ticks produce recurring serial tick output without freeze | Serial tick capture over time |
 | Stage 4 - Keyboard IRQ groundwork | complete | TBD | IRQ1 receives keyboard events, raw scancodes printed to serial, timer and keyboard IRQs coexist | Serial capture showing ticks and scancodes |
-| Stage 5A - Multiboot2 memory map parsing | in-progress | TBD | Memory map tag located and parsed with serial region summary output | Serial capture with parsed entries and usable summary |
+| Stage 5A - Multiboot2 memory map parsing | complete | TBD | Memory map tag located and parsed with serial region summary output | Serial capture with parsed entries and usable summary |
+| Stage 5B - Memory accounting / usable RAM summary | complete | TBD | Raw and policy-filtered RAM accounting summaries emitted with stable bookkeeping view | Serial capture with Stage 5B summary markers |
 
 ## Current focus
 
-- Verify Stage 5A memory map parsing output in QEMU.
-- Keep Stage 5B/5C/5D out of scope until Stage 5A is validated.
+- Stage 5A and Stage 5B are complete and verified.
+- Hold Stage 5C and Stage 5D until allocator scope is explicitly approved.
 
 ## Weekly update template
 
 - Week of: 2026-04-01
 
 - Completed:
-  - Stage 5A implemented (Multiboot2 memory map parsing)
-  - Safe tag walking + validation
-  - Serial output for memory regions
+  - Stage 5A memory map parsing
+  - Stage 5B memory accounting and policy filtering
+  - Safe parsing and accounting separation
 
 - Blockers:
   - None
 
 - Next focus:
-  - Validate Stage 5A output in QEMU
-  - Prepare Stage 5B memory accounting
+  - Stage 5C allocator design approval
 
 - Risk changes:
   - Memory parsing verified as stable base for allocator work

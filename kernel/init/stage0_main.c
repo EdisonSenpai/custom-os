@@ -10,6 +10,10 @@
 #define MULTIBOOT2_TAG_END 0u
 #define MULTIBOOT2_TAG_MMAP 6u
 #define MULTIBOOT2_MEMORY_AVAILABLE 1u
+#define STAGE5B_MAX_REGIONS 128u
+#define STAGE5B_POLICY_MIN_ADDR 0x00100000ull
+#define STAGE5B_REGION_FLAG_RAW_USABLE 0x01u
+#define STAGE5B_REGION_FLAG_POLICY_USABLE 0x02u
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
 #define IRQ_BASE_VECTOR 0x20u
@@ -63,6 +67,32 @@ struct multiboot2_mmap_entry {
     uint32_t reserved;
 } __attribute__((packed));
 
+struct stage5b_region {
+    uint64_t base_addr;
+    uint64_t length;
+    uint64_t end_addr;
+    uint32_t multiboot_type;
+    uint32_t flags;
+};
+
+struct stage5b_memory_bookkeeping {
+    uint32_t region_count;
+    uint32_t dropped_regions;
+    uint64_t raw_usable_bytes;
+    uint64_t raw_reserved_bytes;
+    uint64_t policy_usable_bytes;
+    uint64_t highest_usable_end;
+    struct stage5b_region regions[STAGE5B_MAX_REGIONS];
+};
+
+struct stage5_parse_totals {
+    uint32_t entry_count;
+    uint32_t usable_regions;
+    uint32_t reserved_regions;
+    uint64_t raw_usable_bytes;
+    uint64_t raw_reserved_bytes;
+};
+
 struct idt_entry {
     uint16_t offset_low;
     uint16_t selector;
@@ -78,6 +108,7 @@ struct idtr {
 
 static struct idt_entry g_idt[IDT_ENTRIES];
 static struct idtr g_idtr;
+static struct stage5b_memory_bookkeeping g_stage5b_memory;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
@@ -241,6 +272,134 @@ static uint32_t align_up_8(uint32_t value)
     return (value + 7u) & ~7u;
 }
 
+static uint64_t add_clamp_u64(uint64_t accumulator, uint64_t increment)
+{
+    const uint64_t sum = accumulator + increment;
+
+    if (sum < accumulator) {
+        return UINT64_MAX;
+    }
+
+    return sum;
+}
+
+static int checked_add_u64(uint64_t a, uint64_t b, uint64_t* out)
+{
+    *out = a + b;
+    return *out < a;
+}
+
+static void stage5b_reset_bookkeeping(void)
+{
+    g_stage5b_memory.region_count = 0u;
+    g_stage5b_memory.dropped_regions = 0u;
+    g_stage5b_memory.raw_usable_bytes = 0u;
+    g_stage5b_memory.raw_reserved_bytes = 0u;
+    g_stage5b_memory.policy_usable_bytes = 0u;
+    g_stage5b_memory.highest_usable_end = 0u;
+}
+
+static void stage5b_record_region(uint64_t base, uint64_t length, uint64_t end, uint32_t type, uint32_t flags)
+{
+    const uint32_t index = g_stage5b_memory.region_count;
+
+    /* Region storage is capped for Stage 5B reviewability; byte totals are tracked separately. */
+    if (index >= STAGE5B_MAX_REGIONS) {
+        g_stage5b_memory.dropped_regions++;
+        return;
+    }
+
+    g_stage5b_memory.regions[index].base_addr = base;
+    g_stage5b_memory.regions[index].length = length;
+    g_stage5b_memory.regions[index].end_addr = end;
+    g_stage5b_memory.regions[index].multiboot_type = type;
+    g_stage5b_memory.regions[index].flags = flags;
+    g_stage5b_memory.region_count = index + 1u;
+}
+
+static uint64_t stage5b_policy_usable_length(uint64_t base, uint64_t length, uint32_t type)
+{
+    uint64_t end = 0u;
+
+    if (type != MULTIBOOT2_MEMORY_AVAILABLE || length == 0u) {
+        return 0u;
+    }
+
+    if (checked_add_u64(base, length, &end) != 0) {
+        return 0u;
+    }
+
+    if (end <= STAGE5B_POLICY_MIN_ADDR) {
+        return 0u;
+    }
+
+    if (base >= STAGE5B_POLICY_MIN_ADDR) {
+        return length;
+    }
+
+    return end - STAGE5B_POLICY_MIN_ADDR;
+}
+
+static void stage5_parse_totals_reset(struct stage5_parse_totals* totals)
+{
+    totals->entry_count = 0u;
+    totals->usable_regions = 0u;
+    totals->reserved_regions = 0u;
+    totals->raw_usable_bytes = 0u;
+    totals->raw_reserved_bytes = 0u;
+}
+
+static void stage5b_account_entry(const struct multiboot2_mmap_entry* entry)
+{
+    uint32_t region_flags = 0u;
+    uint64_t region_end = entry->base_addr;
+    uint64_t policy_usable_length = 0u;
+
+    if (checked_add_u64(entry->base_addr, entry->length, &region_end) != 0) {
+        region_end = UINT64_MAX;
+    }
+
+    if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
+        region_flags |= STAGE5B_REGION_FLAG_RAW_USABLE;
+    }
+
+    policy_usable_length = stage5b_policy_usable_length(entry->base_addr, entry->length, entry->type);
+
+    if (policy_usable_length > 0u) {
+        region_flags |= STAGE5B_REGION_FLAG_POLICY_USABLE;
+        g_stage5b_memory.policy_usable_bytes = add_clamp_u64(
+            g_stage5b_memory.policy_usable_bytes,
+            policy_usable_length);
+
+        if (region_end > g_stage5b_memory.highest_usable_end) {
+            g_stage5b_memory.highest_usable_end = region_end;
+        }
+    }
+
+    stage5b_record_region(entry->base_addr, entry->length, region_end, entry->type, region_flags);
+}
+
+static void stage5b_emit_summary(const struct stage5_parse_totals* totals)
+{
+    const uint64_t policy_unusable_bytes =
+        (g_stage5b_memory.raw_usable_bytes >= g_stage5b_memory.policy_usable_bytes)
+            ? (g_stage5b_memory.raw_usable_bytes - g_stage5b_memory.policy_usable_bytes)
+            : 0u;
+
+    serial_write_label_hex("custom-os Stage 5A mmap entries: ", totals->entry_count);
+    serial_write_label_hex("custom-os Stage 5A usable regions: ", totals->usable_regions);
+    serial_write_label_hex("custom-os Stage 5A reserved regions: ", totals->reserved_regions);
+    serial_write_label_hex64("custom-os Stage 5A usable bytes: ", totals->raw_usable_bytes);
+
+    serial_write_label_hex("custom-os Stage 5B regions stored: ", g_stage5b_memory.region_count);
+    serial_write_label_hex("custom-os Stage 5B regions dropped: ", g_stage5b_memory.dropped_regions);
+    serial_write_label_hex64("custom-os Stage 5B raw usable bytes: ", g_stage5b_memory.raw_usable_bytes);
+    serial_write_label_hex64("custom-os Stage 5B raw reserved bytes: ", g_stage5b_memory.raw_reserved_bytes);
+    serial_write_label_hex64("custom-os Stage 5B policy usable bytes: ", g_stage5b_memory.policy_usable_bytes);
+    serial_write_label_hex64("custom-os Stage 5B policy unavailable bytes: ", policy_unusable_bytes);
+    serial_write_label_hex64("custom-os Stage 5B highest usable end: ", g_stage5b_memory.highest_usable_end);
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -302,10 +461,7 @@ static void stage5a_parse_mmap(uint32_t mb2_info_addr)
     const uintptr_t end_addr = info_addr + (uintptr_t)total_size;
     uintptr_t cursor = info_addr + sizeof(struct multiboot2_info_header);
     uint32_t found_mmap = 0u;
-    uint32_t entry_index = 0u;
-    uint32_t usable_regions = 0u;
-    uint32_t reserved_regions = 0u;
-    uint64_t usable_bytes = 0u;
+    struct stage5_parse_totals totals;
 
     if (total_size < sizeof(struct multiboot2_info_header)) {
         panic("invalid Multiboot2 info size", total_size);
@@ -316,6 +472,8 @@ static void stage5a_parse_mmap(uint32_t mb2_info_addr)
     }
 
     serial_write_text("custom-os Stage 5A: parsing memory map\n");
+    stage5b_reset_bookkeeping();
+    stage5_parse_totals_reset(&totals);
 
     while ((cursor + sizeof(struct multiboot2_tag)) <= end_addr) {
         const struct multiboot2_tag* tag = (const struct multiboot2_tag*)cursor;
@@ -357,19 +515,22 @@ static void stage5a_parse_mmap(uint32_t mb2_info_addr)
             while ((entry_cursor + (uintptr_t)mmap_tag->entry_size) <= entry_end) {
                 const struct multiboot2_mmap_entry* entry = (const struct multiboot2_mmap_entry*)entry_cursor;
 
-                serial_write_label_hex("custom-os Stage 5A mmap index: ", entry_index);
+                serial_write_label_hex("custom-os Stage 5A mmap index: ", totals.entry_count);
                 serial_write_label_hex64("  base: ", entry->base_addr);
                 serial_write_label_hex64("  len : ", entry->length);
                 serial_write_label_hex("  type: ", entry->type);
 
                 if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
-                    usable_regions++;
-                    usable_bytes += entry->length;
+                    totals.usable_regions++;
+                    totals.raw_usable_bytes = add_clamp_u64(totals.raw_usable_bytes, entry->length);
                 } else {
-                    reserved_regions++;
+                    totals.reserved_regions++;
+                    totals.raw_reserved_bytes = add_clamp_u64(totals.raw_reserved_bytes, entry->length);
                 }
 
-                entry_index++;
+                stage5b_account_entry(entry);
+
+                totals.entry_count++;
                 entry_cursor += mmap_tag->entry_size;
             }
         }
@@ -385,10 +546,9 @@ static void stage5a_parse_mmap(uint32_t mb2_info_addr)
         panic("missing Multiboot2 mmap tag", 0u);
     }
 
-    serial_write_label_hex("custom-os Stage 5A mmap entries: ", entry_index);
-    serial_write_label_hex("custom-os Stage 5A usable regions: ", usable_regions);
-    serial_write_label_hex("custom-os Stage 5A reserved regions: ", reserved_regions);
-    serial_write_label_hex64("custom-os Stage 5A usable bytes: ", usable_bytes);
+    g_stage5b_memory.raw_usable_bytes = totals.raw_usable_bytes;
+    g_stage5b_memory.raw_reserved_bytes = totals.raw_reserved_bytes;
+    stage5b_emit_summary(&totals);
 }
 
 static const char* exception_name(uint32_t vector)

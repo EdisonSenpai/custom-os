@@ -1,6 +1,6 @@
 # Stage 5A: Multiboot2 Memory Map Parsing
 
-Status: in-progress (implemented, pending runtime verification)
+Status: complete
 
 ## Objective
 
@@ -19,7 +19,7 @@ Included in Stage 5A:
 
 Explicitly not included yet:
 
-- Stage 5B memory accounting policy beyond concise summary output.
+- Stage 5B accounting finalization and review sign-off are tracked in stage-5b.md.
 - Stage 5C physical frame allocator groundwork.
 - Stage 5D frame allocation tests.
 - Paging, heap, kmalloc, or allocator APIs.
@@ -46,3 +46,5 @@ Observe serial output after Stage 4 init markers.
 ## Notes For Stage 5B
 
 Stage 5A provides validated raw region data and a usable-memory aggregate that Stage 5B can build on for explicit RAM accounting policy.
+
+Validation result: verified prior to Stage 5B finalization.
