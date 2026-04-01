@@ -7,6 +7,9 @@
 
 #define COM1_PORT 0x3F8
 #define MULTIBOOT2_BOOTLOADER_MAGIC 0x36D76289u
+#define MULTIBOOT2_TAG_END 0u
+#define MULTIBOOT2_TAG_MMAP 6u
+#define MULTIBOOT2_MEMORY_AVAILABLE 1u
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
 #define IRQ_BASE_VECTOR 0x20u
@@ -36,6 +39,30 @@
 
 static volatile uint32_t g_timer_ticks = 0u;
 
+struct multiboot2_info_header {
+    uint32_t total_size;
+    uint32_t reserved;
+} __attribute__((packed));
+
+struct multiboot2_tag {
+    uint32_t type;
+    uint32_t size;
+} __attribute__((packed));
+
+struct multiboot2_mmap_tag {
+    uint32_t type;
+    uint32_t size;
+    uint32_t entry_size;
+    uint32_t entry_version;
+} __attribute__((packed));
+
+struct multiboot2_mmap_entry {
+    uint64_t base_addr;
+    uint64_t length;
+    uint32_t type;
+    uint32_t reserved;
+} __attribute__((packed));
+
 struct idt_entry {
     uint16_t offset_low;
     uint16_t selector;
@@ -51,6 +78,8 @@ struct idtr {
 
 static struct idt_entry g_idt[IDT_ENTRIES];
 static struct idtr g_idtr;
+
+__attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -161,6 +190,23 @@ static void format_hex32(uint32_t value, char out[11])
     out[10] = '\0';
 }
 
+static void format_hex64(uint64_t value, char out[19])
+{
+    static const char hex[] = "0123456789ABCDEF";
+    uint32_t i = 0;
+
+    out[0] = '0';
+    out[1] = 'x';
+
+    while (i < 16u) {
+        const uint32_t shift = (15u - i) * 4u;
+        out[2u + i] = hex[(value >> shift) & 0xFu];
+        i++;
+    }
+
+    out[18] = '\0';
+}
+
 static void write_hex_at_row(const char* label, uint16_t row, uint16_t value_col, uint32_t value)
 {
     char value_hex[11];
@@ -178,6 +224,21 @@ static void serial_write_label_hex(const char* label, uint32_t value)
     serial_write_text(label);
     serial_write_text(value_hex);
     serial_write_text("\n");
+}
+
+static void serial_write_label_hex64(const char* label, uint64_t value)
+{
+    char value_hex[19];
+
+    format_hex64(value, value_hex);
+    serial_write_text(label);
+    serial_write_text(value_hex);
+    serial_write_text("\n");
+}
+
+static uint32_t align_up_8(uint32_t value)
+{
+    return (value + 7u) & ~7u;
 }
 
 static void pic_send_eoi(uint8_t irq)
@@ -231,6 +292,103 @@ static void pit_init(uint32_t target_hz)
     outb(PIT_COMMAND, 0x36u);
     outb(PIT_CHANNEL0, (uint8_t)(divisor & 0xFFu));
     outb(PIT_CHANNEL0, (uint8_t)((divisor >> 8u) & 0xFFu));
+}
+
+static void stage5a_parse_mmap(uint32_t mb2_info_addr)
+{
+    const uintptr_t info_addr = (uintptr_t)mb2_info_addr;
+    const struct multiboot2_info_header* info = (const struct multiboot2_info_header*)info_addr;
+    const uint32_t total_size = info->total_size;
+    const uintptr_t end_addr = info_addr + (uintptr_t)total_size;
+    uintptr_t cursor = info_addr + sizeof(struct multiboot2_info_header);
+    uint32_t found_mmap = 0u;
+    uint32_t entry_index = 0u;
+    uint32_t usable_regions = 0u;
+    uint32_t reserved_regions = 0u;
+    uint64_t usable_bytes = 0u;
+
+    if (total_size < sizeof(struct multiboot2_info_header)) {
+        panic("invalid Multiboot2 info size", total_size);
+    }
+
+    if (end_addr < info_addr) {
+        panic("Multiboot2 size overflow", total_size);
+    }
+
+    serial_write_text("custom-os Stage 5A: parsing memory map\n");
+
+    while ((cursor + sizeof(struct multiboot2_tag)) <= end_addr) {
+        const struct multiboot2_tag* tag = (const struct multiboot2_tag*)cursor;
+        const uint32_t aligned_tag_size = align_up_8(tag->size);
+
+        if (tag->size < sizeof(struct multiboot2_tag)) {
+            panic("invalid Multiboot2 tag size", tag->size);
+        }
+
+        if ((cursor + (uintptr_t)tag->size) > end_addr) {
+            panic("truncated Multiboot2 tag", tag->type);
+        }
+
+        if (tag->type == MULTIBOOT2_TAG_END) {
+            if (tag->size != 8u) {
+                panic("invalid Multiboot2 end tag", tag->size);
+            }
+            break;
+        }
+
+        if (tag->type == MULTIBOOT2_TAG_MMAP) {
+            const struct multiboot2_mmap_tag* mmap_tag = (const struct multiboot2_mmap_tag*)cursor;
+            uintptr_t entry_cursor;
+            uintptr_t entry_end;
+
+            found_mmap = 1u;
+
+            if (mmap_tag->size < sizeof(struct multiboot2_mmap_tag)) {
+                panic("invalid mmap tag size", mmap_tag->size);
+            }
+
+            if (mmap_tag->entry_size < sizeof(struct multiboot2_mmap_entry)) {
+                panic("invalid mmap entry size", mmap_tag->entry_size);
+            }
+
+            entry_cursor = cursor + sizeof(struct multiboot2_mmap_tag);
+            entry_end = cursor + mmap_tag->size;
+
+            while ((entry_cursor + (uintptr_t)mmap_tag->entry_size) <= entry_end) {
+                const struct multiboot2_mmap_entry* entry = (const struct multiboot2_mmap_entry*)entry_cursor;
+
+                serial_write_label_hex("custom-os Stage 5A mmap index: ", entry_index);
+                serial_write_label_hex64("  base: ", entry->base_addr);
+                serial_write_label_hex64("  len : ", entry->length);
+                serial_write_label_hex("  type: ", entry->type);
+
+                if (entry->type == MULTIBOOT2_MEMORY_AVAILABLE) {
+                    usable_regions++;
+                    usable_bytes += entry->length;
+                } else {
+                    reserved_regions++;
+                }
+
+                entry_index++;
+                entry_cursor += mmap_tag->entry_size;
+            }
+        }
+
+        if (aligned_tag_size == 0u || (cursor + (uintptr_t)aligned_tag_size) > end_addr) {
+            panic("invalid aligned tag size", tag->size);
+        }
+
+        cursor += aligned_tag_size;
+    }
+
+    if (found_mmap == 0u) {
+        panic("missing Multiboot2 mmap tag", 0u);
+    }
+
+    serial_write_label_hex("custom-os Stage 5A mmap entries: ", entry_index);
+    serial_write_label_hex("custom-os Stage 5A usable regions: ", usable_regions);
+    serial_write_label_hex("custom-os Stage 5A reserved regions: ", reserved_regions);
+    serial_write_label_hex64("custom-os Stage 5A usable bytes: ", usable_bytes);
 }
 
 static const char* exception_name(uint32_t vector)
@@ -396,6 +554,8 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     if (mb2_info_addr == 0u) {
         panic("null Multiboot2 info pointer", mb2_info_addr);
     }
+
+    stage5a_parse_mmap(mb2_info_addr);
 
     idt_install();
     pic_remap((uint8_t)IRQ_BASE_VECTOR, (uint8_t)(IRQ_BASE_VECTOR + 8u));
