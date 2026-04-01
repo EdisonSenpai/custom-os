@@ -1,6 +1,6 @@
 # Boot Notes
 
-Current status: Stage 4 uses a minimal GRUB plus Multiboot2 boot path.
+Current status: Stage 5 uses the same minimal GRUB plus Multiboot2 boot path.
 
 Current responsibilities:
 

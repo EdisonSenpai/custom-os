@@ -8,7 +8,8 @@
 - stage-5a.md: complete, Multiboot2 memory map parsing and serial summary.
 - stage-5b.md: complete, memory accounting and usable RAM summary.
 - stage-5c.md: complete, physical frame bookkeeping groundwork and serial frame summary markers.
+- stage-5d.md: complete, deterministic boot-time frame allocation smoke test.
 
-Current focus: Stage 5D frame allocation behavior and validation.
+Current focus: Stage 5 complete; hold until Stage 6 scope is approved.
 
-Stage 5 is split into 5A, 5B, 5C, and 5D. Stages 5A through 5C are complete. Full Stage 5 remains incomplete until Stage 5D is verified.
+Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.

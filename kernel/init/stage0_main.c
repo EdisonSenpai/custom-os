@@ -17,6 +17,7 @@
 #define STAGE5C_MAX_RANGES 128u
 #define STAGE5C_FRAME_SHIFT 12u
 #define STAGE5C_FRAME_SIZE (1ull << STAGE5C_FRAME_SHIFT)
+#define STAGE5D_TEST_ALLOC_COUNT 4u
 #define IDT_ENTRIES 256u
 #define IDT_INT_GATE_PRESENT_RING0 0x8Eu
 #define IRQ_BASE_VECTOR 0x20u
@@ -102,6 +103,14 @@ struct stage5c_frame_bookkeeping {
     struct stage5c_frame_range ranges[STAGE5C_MAX_RANGES];
 };
 
+struct stage5d_allocator_state {
+    uint32_t initialized;
+    uint32_t cursor_range;
+    uint64_t next_frame;
+    uint64_t remaining_frames;
+    uint64_t allocations_issued;
+};
+
 struct stage5_parse_totals {
     uint32_t entry_count;
     uint32_t usable_regions;
@@ -127,6 +136,7 @@ static struct idt_entry g_idt[IDT_ENTRIES];
 static struct idtr g_idtr;
 static struct stage5b_memory_bookkeeping g_stage5b_memory;
 static struct stage5c_frame_bookkeeping g_stage5c_frames;
+static struct stage5d_allocator_state g_stage5d_allocator;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 
@@ -529,6 +539,120 @@ static void stage5c_prepare_frame_bookkeeping(void)
     stage5c_emit_summary();
 }
 
+static void stage5d_reset_allocator_state(void)
+{
+    g_stage5d_allocator.initialized = 0u;
+    g_stage5d_allocator.cursor_range = 0u;
+    g_stage5d_allocator.next_frame = 0u;
+    g_stage5d_allocator.remaining_frames = 0u;
+    g_stage5d_allocator.allocations_issued = 0u;
+}
+
+static void stage5d_advance_cursor(void)
+{
+    while (g_stage5d_allocator.cursor_range < g_stage5c_frames.range_count) {
+        const struct stage5c_frame_range* range = &g_stage5c_frames.ranges[g_stage5d_allocator.cursor_range];
+        uint64_t range_end_frame = 0u;
+
+        if (range->frame_count == 0u) {
+            g_stage5d_allocator.cursor_range++;
+            continue;
+        }
+
+        if (checked_add_u64(range->start_frame, range->frame_count, &range_end_frame) != 0) {
+            range_end_frame = UINT64_MAX;
+        }
+
+        if (g_stage5d_allocator.next_frame < range->start_frame) {
+            g_stage5d_allocator.next_frame = range->start_frame;
+        }
+
+        if (g_stage5d_allocator.next_frame < range_end_frame) {
+            break;
+        }
+
+        g_stage5d_allocator.cursor_range++;
+    }
+}
+
+static void stage5d_allocator_init_from_stage5c(void)
+{
+    stage5d_reset_allocator_state();
+
+    g_stage5d_allocator.remaining_frames = g_stage5c_frames.eligible_frames;
+
+    if (g_stage5c_frames.range_count == 0u || g_stage5c_frames.eligible_frames == 0u) {
+        g_stage5d_allocator.initialized = 1u;
+        return;
+    }
+
+    g_stage5d_allocator.next_frame = g_stage5c_frames.ranges[0].start_frame;
+    stage5d_advance_cursor();
+    g_stage5d_allocator.initialized = 1u;
+}
+
+static int stage5d_try_allocate_frame(uint64_t* out_phys_addr)
+{
+    uint64_t frame = 0u;
+
+    if (out_phys_addr == (uint64_t*)0) {
+        return 0;
+    }
+
+    if (g_stage5d_allocator.initialized == 0u) {
+        stage5d_allocator_init_from_stage5c();
+    }
+
+    if (g_stage5d_allocator.remaining_frames == 0u) {
+        return 0;
+    }
+
+    stage5d_advance_cursor();
+
+    if (g_stage5d_allocator.cursor_range >= g_stage5c_frames.range_count) {
+        return 0;
+    }
+
+    frame = g_stage5d_allocator.next_frame;
+    g_stage5d_allocator.next_frame = frame + 1u;
+    g_stage5d_allocator.remaining_frames--;
+    g_stage5d_allocator.allocations_issued = add_clamp_u64(g_stage5d_allocator.allocations_issued, 1u);
+
+    if (frame > (UINT64_MAX >> STAGE5C_FRAME_SHIFT)) {
+        return 0;
+    }
+
+    *out_phys_addr = frame << STAGE5C_FRAME_SHIFT;
+    return 1;
+}
+
+static void stage5d_run_boot_allocation_test(void)
+{
+    uint32_t granted = 0u;
+    uint32_t i = 0u;
+
+    stage5d_allocator_init_from_stage5c();
+
+    serial_write_text("custom-os Stage 5D: deterministic frame allocation test\n");
+    serial_write_label_hex("custom-os Stage 5D alloc request count: ", STAGE5D_TEST_ALLOC_COUNT);
+
+    while (i < STAGE5D_TEST_ALLOC_COUNT) {
+        uint64_t phys_addr = 0u;
+
+        if (stage5d_try_allocate_frame(&phys_addr) == 0) {
+            break;
+        }
+
+        serial_write_label_hex("custom-os Stage 5D alloc index: ", i);
+        serial_write_label_hex64("custom-os Stage 5D alloc addr : ", phys_addr);
+        granted++;
+        i++;
+    }
+
+    serial_write_label_hex("custom-os Stage 5D alloc granted: ", granted);
+    serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", g_stage5d_allocator.remaining_frames);
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -755,7 +879,7 @@ void stage3_irq0_handler(void)
     g_timer_ticks++;
 
     if ((g_timer_ticks % PIT_TARGET_HZ) == 0u) {
-        serial_write_label_hex("custom-os Stage 4 tick: ", g_timer_ticks);
+        serial_write_label_hex("custom-os Stage 5 tick: ", g_timer_ticks);
     }
 
     pic_send_eoi(0u);
@@ -765,7 +889,7 @@ void stage4_irq1_handler(void)
 {
     const uint8_t scancode = inb(0x60u);
 
-    serial_write_label_hex("custom-os Stage 4 scancode: ", (uint32_t)scancode);
+    serial_write_label_hex("custom-os Stage 5 scancode: ", (uint32_t)scancode);
     pic_send_eoi(1u);
 }
 
@@ -776,12 +900,12 @@ __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail)
     format_hex32(detail, detail_hex);
     clear_screen();
 
-    write_text("custom-os Stage 4 PANIC", 0);
+    write_text("custom-os Stage 5 PANIC", 0);
     write_text(reason, 1);
     write_text("detail:", 2);
     write_text_at(detail_hex, 2, 8);
 
-    serial_write_text("custom-os Stage 4 PANIC\n");
+    serial_write_text("custom-os Stage 5 PANIC\n");
     serial_write_text(reason);
     serial_write_text("\n");
     serial_write_text("detail: ");
@@ -829,8 +953,8 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     clear_screen();
     serial_init();
 
-    write_text("custom-os Stage 4: init start", 0);
-    serial_write_text("custom-os Stage 4: init start\n");
+    write_text("custom-os Stage 5: init start", 0);
+    serial_write_text("custom-os Stage 5: init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -846,27 +970,28 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
 
     stage5a_parse_mmap(mb2_info_addr);
     stage5c_prepare_frame_bookkeeping();
+    stage5d_run_boot_allocation_test();
 
     idt_install();
     pic_remap((uint8_t)IRQ_BASE_VECTOR, (uint8_t)(IRQ_BASE_VECTOR + 8u));
     pic_set_masks(0xFCu, 0xFFu);
     pit_init(PIT_TARGET_HZ);
 
-    write_text("custom-os Stage 4: Multiboot2 handoff OK", 1);
-    write_text("custom-os Stage 4: IDT installed", 2);
-    write_text("custom-os Stage 4: PIC remapped + PIT started", 3);
-    write_text("custom-os Stage 4: deterministic init OK", 4);
+    write_text("custom-os Stage 5: Multiboot2 handoff OK", 1);
+    write_text("custom-os Stage 5: IDT installed", 2);
+    write_text("custom-os Stage 5: PIC remapped + PIT started", 3);
+    write_text("custom-os Stage 5: deterministic init OK", 4);
 
-    serial_write_text("custom-os Stage 4: Multiboot2 handoff OK\n");
-    serial_write_text("custom-os Stage 4: IDT installed\n");
-    serial_write_text("custom-os Stage 4: PIC remapped + PIT started\n");
-    serial_write_text("custom-os Stage 4: deterministic init OK\n");
+    serial_write_text("custom-os Stage 5: Multiboot2 handoff OK\n");
+    serial_write_text("custom-os Stage 5: IDT installed\n");
+    serial_write_text("custom-os Stage 5: PIC remapped + PIT started\n");
+    serial_write_text("custom-os Stage 5: deterministic init OK\n");
 
     __asm__ volatile ("sti");
 
 #if STAGE2_FORCE_EXCEPTION
-    write_text("custom-os Stage 4: triggering INT3 test", 6);
-    serial_write_text("custom-os Stage 4: triggering INT3 test\n");
+    write_text("custom-os Stage 5: triggering INT3 test", 6);
+    serial_write_text("custom-os Stage 5: triggering INT3 test\n");
     __asm__ volatile ("int3");
 #endif
 }

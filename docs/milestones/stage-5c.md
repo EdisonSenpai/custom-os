@@ -50,4 +50,4 @@ Observe serial output during early init after Stage 5A parsing.
 
 ## Notes For Stage 5D
 
-Stage 5C establishes the non-allocating frame bookkeeping baseline. Full Stage 5 remains incomplete until Stage 5D frame allocation behavior and validation are complete.
+Stage 5C established the non-allocating frame bookkeeping baseline that Stage 5D now uses for deterministic boot-time frame allocation validation.
