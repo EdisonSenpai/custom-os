@@ -24,13 +24,15 @@ Purpose: one-page status view for solo progress.
 | Stage 5D - Deterministic frame allocation boot test | complete | TBD | Fixed-count early-boot frame allocations emit physical addresses and remaining eligible-frame summary without Stage 4 regressions | Serial capture with Stage 5D allocation markers and ongoing Stage 4 IRQ output |
 | Stage 5 - Memory groundwork suite (5A-5D) | complete | TBD | All Stage 5 sub-stages verified independently and together | Stage 5A through Stage 5D evidence set |
 | Stage 6A - PMM state formalization and internal cleanup | complete | TBD | PMM allocator internals are reorganized with explicit state boundaries while preserving Stage 5D boot-test behavior and outputs | QEMU validation: successful build and boot, intact Stage 5A/5B/5C and Stage 5D markers, ongoing Stage 4 IRQ output, no regressions |
+| Stage 6B - PMM public allocation API surface | complete | TBD | Export narrow PMM allocation API (`stage6b_pmm_alloc_frame`, `stage6b_pmm_get_remaining_frames`) while preserving deterministic behavior and Stage 5D smoke-test outputs | QEMU validation: build and boot succeeded; Stage 5A/5B/5C output intact; Stage 5D deterministic output intact; allocated frame addresses unchanged; remaining eligible-frame count correct; Stage 4 timer+keyboard IRQ output continues after Stage 5D; no regressions. |
 
 ## Current focus
 
 - Stage 5A through Stage 5D are complete and verified.
 - Full Stage 5 is complete.
 - Stage 6A internal PMM cleanup is complete and validated.
-- Next focus is Stage 6B planning and design only; implementation has not started.
+- Stage 6B PMM public API surface is complete and validated.
+- Stage 6C has not started; next work is planning/design only.
 
 ## Weekly update template
 
@@ -42,15 +44,17 @@ Purpose: one-page status view for solo progress.
   - Stage 5C physical frame bookkeeping groundwork
   - Stage 5D deterministic frame allocation boot test (validated)
   - Stage 6A PMM internal cleanup completed and validated (behavior preserved, no regressions)
+  - Stage 6B PMM public API surface completed and validated (behavior preserved, no regressions)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 6B planning and design only (scope, interfaces, validation strategy)
-  - No Stage 6B implementation work yet
+  - Stage 6C planning and design only (scope definition, API shape, validation plan)
+  - Keep Stage 6C implementation not started
+  - Keep frame free/reuse behavior out of scope for now
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
   - Stage 6A kept allocator behavior unchanged by design and validated against existing Stage 5D and Stage 4 markers
-  - Stage 6B remains intentionally unstarted pending planning/design completion
+  - Stage 6B validation completed with no regressions; Stage 6C remains planning-only

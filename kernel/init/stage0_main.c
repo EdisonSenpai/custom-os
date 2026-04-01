@@ -634,6 +634,16 @@ static int stage6a_pmm_try_allocate_frame(uint64_t* out_phys_addr)
     return 1;
 }
 
+int stage6b_pmm_alloc_frame(uint64_t* out_phys_addr)
+{
+    return stage6a_pmm_try_allocate_frame(out_phys_addr);
+}
+
+uint64_t stage6b_pmm_get_remaining_frames(void)
+{
+    return g_stage6a_pmm.remaining_frame_count;
+}
+
 static void stage5d_run_boot_allocation_test(void)
 {
     uint32_t granted = 0u;
@@ -647,7 +657,7 @@ static void stage5d_run_boot_allocation_test(void)
     while (i < STAGE5D_TEST_ALLOC_COUNT) {
         uint64_t phys_addr = 0u;
 
-        if (stage6a_pmm_try_allocate_frame(&phys_addr) == 0) {
+        if (stage6b_pmm_alloc_frame(&phys_addr) == 0) {
             break;
         }
 
@@ -658,7 +668,7 @@ static void stage5d_run_boot_allocation_test(void)
     }
 
     serial_write_label_hex("custom-os Stage 5D alloc granted: ", granted);
-    serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", g_stage6a_pmm.remaining_frame_count);
+    serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", stage6b_pmm_get_remaining_frames());
 }
 
 static void pic_send_eoi(uint8_t irq)
