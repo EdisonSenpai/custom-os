@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "mm/paging.h"
+#include "mm/vmm_layout.h"
 
 #define VGA_TEXT_BUFFER ((volatile uint16_t*)0xB8000)
 #define VGA_ATTR 0x0F
@@ -165,6 +166,7 @@ static void stage7a_run_paging_groundwork_self_check(void);
 static void stage7b_run_static_paging_setup_self_check(void);
 static void stage7c_run_paging_activation_self_check(void);
 static void stage7d_run_identity_validation_self_check(void);
+static void stage8a_run_vmm_layout_policy_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1198,6 +1200,118 @@ static void stage7d_run_identity_validation_self_check(void)
     }
 }
 
+static void stage8a_run_vmm_layout_policy_self_check(void)
+{
+    struct stage8a_classification_sample {
+        uint32_t addr;
+        stage8a_vmm_layout_region_class_t expected_class;
+    };
+
+    static const struct stage8a_classification_sample samples[] = {
+        {0x00001000u, STAGE8A_VMM_LAYOUT_REGION_ACTIVE_IDENTITY},
+        {0x00400000u, STAGE8A_VMM_LAYOUT_REGION_FUTURE_HEAP_RESERVED},
+        {0x00800000u, STAGE8A_VMM_LAYOUT_REGION_FUTURE_MAPPING_RESERVED},
+        {0x01000000u, STAGE8A_VMM_LAYOUT_REGION_UNCLASSIFIED}
+    };
+
+    const uint32_t sample_count = (uint32_t)(sizeof(samples) / sizeof(samples[0]));
+    uint32_t i = 0u;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 8A: layout policy begin\n");
+
+    serial_write_text("custom-os Stage 8A active identity-mapped range\n");
+    serial_write_label_hex("custom-os Stage 8A active start : ", STAGE8A_VMM_LAYOUT_ACTIVE_IDENTITY_START);
+    serial_write_label_hex("custom-os Stage 8A active end   : ", STAGE8A_VMM_LAYOUT_ACTIVE_IDENTITY_END);
+
+    serial_write_text("custom-os Stage 8A future reserved heap range\n");
+    serial_write_label_hex("custom-os Stage 8A heap start   : ", STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START);
+    serial_write_label_hex("custom-os Stage 8A heap end     : ", STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END);
+
+    serial_write_text("custom-os Stage 8A future reserved mapping range\n");
+    serial_write_label_hex("custom-os Stage 8A map start    : ", STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START);
+    serial_write_label_hex("custom-os Stage 8A map end      : ", STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_END);
+
+    if (stage8a_vmm_layout_validate_policy() == 0) {
+        passed = 0u;
+    }
+
+    if (stage8a_vmm_layout_is_region_in_active_identity(
+            STAGE8A_VMM_LAYOUT_ACTIVE_IDENTITY_START,
+            STAGE8A_VMM_LAYOUT_ACTIVE_IDENTITY_END_EXCLUSIVE - STAGE8A_VMM_LAYOUT_ACTIVE_IDENTITY_START)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (stage8a_vmm_layout_is_region_in_future_heap_reserved(
+            STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START,
+            STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE - STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (stage8a_vmm_layout_is_region_in_future_mapping_reserved(
+            STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START,
+            STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_END_EXCLUSIVE - STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (stage8a_vmm_layout_is_region_in_active_identity(
+            STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START,
+            STAGE8A_VMM_LAYOUT_PAGE_SIZE_4K)
+        != 0) {
+        passed = 0u;
+    }
+
+    serial_write_text("custom-os Stage 8A address classification examples\n");
+
+    while (i < sample_count) {
+        const stage8a_vmm_layout_region_class_t observed_class =
+            stage8a_vmm_layout_classify_addr(samples[i].addr);
+
+        serial_write_label_hex("custom-os Stage 8A sample addr  : ", samples[i].addr);
+        serial_write_text("custom-os Stage 8A sample class : ");
+        serial_write_text(stage8a_vmm_layout_region_class_name(observed_class));
+        serial_write_text("\n");
+
+        if (observed_class != samples[i].expected_class) {
+            passed = 0u;
+        }
+
+        if (samples[i].expected_class == STAGE8A_VMM_LAYOUT_REGION_ACTIVE_IDENTITY
+            && stage8a_vmm_layout_is_addr_in_active_identity(samples[i].addr) == 0) {
+            passed = 0u;
+        }
+
+        if (samples[i].expected_class == STAGE8A_VMM_LAYOUT_REGION_FUTURE_HEAP_RESERVED
+            && stage8a_vmm_layout_is_addr_in_future_heap_reserved(samples[i].addr) == 0) {
+            passed = 0u;
+        }
+
+        if (samples[i].expected_class == STAGE8A_VMM_LAYOUT_REGION_FUTURE_MAPPING_RESERVED
+            && stage8a_vmm_layout_is_addr_in_future_mapping_reserved(samples[i].addr) == 0) {
+            passed = 0u;
+        }
+
+        if (samples[i].expected_class == STAGE8A_VMM_LAYOUT_REGION_UNCLASSIFIED
+            && (stage8a_vmm_layout_is_addr_in_active_identity(samples[i].addr) != 0
+                || stage8a_vmm_layout_is_addr_in_future_heap_reserved(samples[i].addr) != 0
+                || stage8a_vmm_layout_is_addr_in_future_mapping_reserved(samples[i].addr) != 0)) {
+            passed = 0u;
+        }
+
+        i++;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 8A: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8A: FAIL\n");
+        panic("Stage 8A layout policy failed", 0x000800A0u);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1520,6 +1634,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage7b_run_static_paging_setup_self_check();
     stage7c_run_paging_activation_self_check();
     stage7d_run_identity_validation_self_check();
+    stage8a_run_vmm_layout_policy_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

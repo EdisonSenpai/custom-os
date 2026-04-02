@@ -33,13 +33,15 @@ Purpose: one-page status view for solo progress.
 | Stage 7C - Paging activation path | complete | 2026-04-02 | Implement explicit CR3 load plus CR0.PG set activation path using static Stage 7B identity structures with deterministic PASS markers and continued runtime execution | QEMU validation: Stage 7C activation PASS with expected CR3 = observed CR3 = 0x0010B000, observed CR0 = 0x80000011 (CR0.PG set), Stage 7A/7B output preserved, and Stage 6 timer/keyboard runtime unchanged |
 | Stage 7D - Identity-mapping validation and fault-aware verification | complete | 2026-04-02 | Validate active paging state, CR3 consistency, first-4 MiB identity probes, and non-destructive page-fault awareness with deterministic serial markers | QEMU validation: Stage 7D markers emitted for validation begin, observed CR3 = 0x0010B000 and observed CR0 = 0x80000011 under active paging, identity probes passed for 0x00001000 and 0x000B8000, page-fault-awareness confirmed via unmapped 0x00400000 with PDE[1] = 0, Stage 7D PASS, and Stage 6 timer/keyboard runtime unchanged |
 | Stage 7 - Paging bring-up suite (7A-7D) | complete | 2026-04-02 | Complete paging model, setup, activation, and validation with no regressions | Stage 7A through Stage 7D evidence set |
+| Stage 8A - VMM layout policy baseline | complete | 2026-04-02 | Add explicit virtual layout policy constants for active identity first-4 MiB plus future heap/mapping reserved windows, policy-only classification helpers, and deterministic Stage 8A self-check markers | Source integration evidence: new `vmm_layout` policy module wired into kernel build, Stage 8A self-check called immediately after Stage 7D with deterministic PASS/FAIL marker set |
+| Stage 8 - VMM policy suite (8A-8D) | in-progress | 2026-04-03 | Stage 8 is split into 8A/8B/8C/8D; only 8A is complete and 8B-8D are not started | Stage 8A evidence present; Stage 8B, Stage 8C, and Stage 8D have no implementation changes yet |
 
 ## Current focus
 
-- Stage 7A through Stage 7D are complete and verified in QEMU.
-- Full Stage 7 is complete.
-- Current baseline: Stage 7 with active first-4 MiB identity-mapped paging and Stage 6 runtime continuity.
-- Next focus: Stage 8 planning only (not started).
+- Stage 7A through Stage 7D remain complete and verified in QEMU.
+- Stage 8 is in-progress: Stage 8A is complete and Stage 8B, Stage 8C, and Stage 8D are not started.
+- Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A policy-only layout classification.
+- Current focus: Stage 8A complete and Stage 8B not started.
 
 ## Weekly update template
 
@@ -61,6 +63,7 @@ Purpose: one-page status view for solo progress.
   - Stage 7C explicit activation path implemented (CR3 load from static Stage 7B directory, CR0.PG set, deterministic pre/post serial markers, post-enable PASS/FAIL check)
   - Stage 7D active paging validation completed (active CR3/CR0 checks, identity probes for 0x00001000 and 0x000B8000, non-destructive page-fault-awareness confirmation via unmapped 0x00400000/PDE[1], deterministic PASS marker)
   - Stage 7 aggregate completion achieved (7A through 7D)
+  - Stage 8A VMM layout policy baseline completed (explicit active identity and future reserved windows, policy-only address/region classification helpers, deterministic Stage 8A self-check markers)
 
 - Blockers:
   - None
@@ -68,7 +71,7 @@ Purpose: one-page status view for solo progress.
 - Next focus:
   - Keep Stage 7 baseline stable under routine boot/runtime checks
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
-  - Stage 8 planning only (not started)
+  - Stage 8A complete; Stage 8B not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -78,3 +81,4 @@ Purpose: one-page status view for solo progress.
   - Stage 6D validation completed with no regressions; reuse activation remains minimal and deterministic
   - Stage 7B completed with paging still disabled by design; no CR3/CR0 writes introduced
   - Stage 7C and Stage 7D now run in early init; preserve first-4 MiB identity assumptions unless milestone scope explicitly changes
+  - Stage 8A introduces policy-only virtual layout declarations/classification and deterministic self-check output, with no new mappings, no heap activation, and no paging activation flow changes
