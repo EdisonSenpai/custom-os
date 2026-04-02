@@ -8,7 +8,7 @@ Purpose: record early decisions before implementation to reduce churn and ABI ri
 - Decision: x86_64 only for initial bring-up.
 - Status: accepted.
 - Rationale: keeps debugging and linker/boot assumptions focused.
-- Stage 0 note: boot entry ABI is temporarily i386-compatible via Multiboot2 to simplify first boot pipeline validation. Long-mode transition remains a Stage 1 task.
+- Stage 0 note: boot entry ABI is temporarily i386-compatible via Multiboot2 to simplify first boot pipeline validation. Long-mode transition is deferred and not part of the current early-stage bring-up.
 
 2. Boot path
 - Decision: GRUB + Multiboot2.

@@ -1,4 +1,15 @@
-# 1) concise project definition
+# Status note:
+
+This document represents long-term architectural direction and early planning.
+
+The authoritative source for current staged progress is:
+
+- docs/milestone-tracker.md
+- docs/milestones/*
+
+If any conflict exists, follow the milestone tracker and milestone documents.
+
+## 1) concise project definition
 
 Build a from-scratch, monolithic x86_64 operating system for learning and long-term engineering growth, optimized for correctness, debuggability, and visible incremental progress rather than fast feature count. The project targets emulator-first development in QEMU, starts with a text console experience, and grows toward a usable system with polished interaction patterns inspired by Windows-level usability (not binary compatibility) and Unix-like composable tools plus permissions/filesystem philosophy.
 
