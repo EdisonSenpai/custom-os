@@ -1,6 +1,6 @@
 # Boot Notes
 
-Current status: Stage 8 uses the same minimal GRUB plus Multiboot2 boot path.
+Current status: Stage 9B uses the same minimal GRUB plus Multiboot2 boot path.
 
 Current responsibilities:
 
@@ -10,6 +10,11 @@ Current responsibilities:
 Current layout:
 
 - grub/: GRUB menu and boot entry configuration.
+
+Current GRUB baseline:
+
+- GRUB menu entry uses `multiboot2 /boot/kernel.elf`.
+- Menu entry text is `custom-os` and no longer refers to Stage 0.
 
 Not implemented yet:
 

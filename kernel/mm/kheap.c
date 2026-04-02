@@ -32,6 +32,61 @@ struct stage8c_kheap_state {
 
 static struct stage8c_kheap_state g_stage8c_kheap;
 
+static int stage9b_kheap_try_reuse_aligned_allocation(
+    uint32_t aligned_size,
+    uint32_t* out_payload_start)
+{
+    uint32_t cursor = 0u;
+
+    if (out_payload_start == (uint32_t*)0) {
+        return -1;
+    }
+
+    *out_payload_start = 0u;
+    cursor = g_stage8c_kheap.start;
+
+    while (cursor < g_stage8c_kheap.current) {
+        struct stage9a_kheap_allocation_header* header =
+            (struct stage9a_kheap_allocation_header*)(uintptr_t)cursor;
+        uint32_t payload_start = 0u;
+        uint32_t payload_end_exclusive = 0u;
+
+        if (cursor > (g_stage8c_kheap.current - (uint32_t)sizeof(struct stage9a_kheap_allocation_header))) {
+            return -1;
+        }
+
+        if (header->magic != STAGE9A_KHEAP_ALLOCATION_HEADER_MAGIC) {
+            return -1;
+        }
+
+        if (header->payload_size == 0u || (header->payload_size & (STAGE8C_KHEAP_MIN_ALIGNMENT - 1u)) != 0u) {
+            return -1;
+        }
+
+        payload_start = cursor + (uint32_t)sizeof(struct stage9a_kheap_allocation_header);
+
+        if (header->payload_size > (g_stage8c_kheap.current - payload_start)) {
+            return -1;
+        }
+
+        payload_end_exclusive = payload_start + header->payload_size;
+
+        if (header->state == STAGE9A_KHEAP_ALLOCATION_STATE_FREED && header->payload_size == aligned_size) {
+            header->state = STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED;
+            *out_payload_start = payload_start;
+            return 1;
+        }
+
+        if (payload_end_exclusive <= cursor) {
+            return -1;
+        }
+
+        cursor = payload_end_exclusive;
+    }
+
+    return 0;
+}
+
 static int stage8c_kheap_align_up(uint32_t value, uint32_t alignment, uint32_t* out_aligned_value)
 {
     const uint32_t mask = alignment - 1u;
@@ -109,9 +164,11 @@ int stage8c_kheap_bootstrap_init(void)
 void* stage8c_kheap_alloc(uint32_t size)
 {
     uint32_t aligned_size = 0u;
+    uint32_t reused_payload_start = 0u;
     uint32_t payload_start = 0u;
     uint32_t allocation_end_exclusive = 0u;
     uint32_t required_mapped_end_exclusive = 0u;
+    int reuse_result = 0;
     const uint32_t allocation_header_start = g_stage8c_kheap.current;
     struct stage9a_kheap_allocation_header* allocation_header =
         (struct stage9a_kheap_allocation_header*)(uintptr_t)0;
@@ -122,6 +179,15 @@ void* stage8c_kheap_alloc(uint32_t size)
 
     if (stage8c_kheap_align_up(size, STAGE8C_KHEAP_MIN_ALIGNMENT, &aligned_size) == 0) {
         return (void*)0;
+    }
+
+    reuse_result = stage9b_kheap_try_reuse_aligned_allocation(aligned_size, &reused_payload_start);
+    if (reuse_result < 0) {
+        return (void*)0;
+    }
+
+    if (reuse_result > 0) {
+        return (void*)(uintptr_t)reused_payload_start;
     }
 
     if (allocation_header_start

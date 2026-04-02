@@ -51,6 +51,7 @@
 #define STAGE8D_TEST_ALLOC_COUNT 4u
 #define STAGE8D_FAIL_DETAIL 0x000800D0u
 #define STAGE9A_FAIL_DETAIL 0x000900A0u
+#define STAGE9B_FAIL_DETAIL 0x000900B0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -180,6 +181,7 @@ static void stage8b_run_vmm_mapping_interface_self_check(void);
 static void stage8c_run_kheap_bootstrap_self_check(void);
 static void stage8d_run_kheap_validation_self_check(void);
 static void stage9a_run_kheap_free_groundwork_self_check(void);
+static void stage9b_run_kheap_reuse_activation_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -1763,6 +1765,81 @@ static void stage9a_run_kheap_free_groundwork_self_check(void)
     }
 }
 
+static void stage9b_run_kheap_reuse_activation_self_check(void)
+{
+    uint32_t heap_start = 0u;
+    uint32_t heap_current_before_reuse = 0u;
+    uint32_t heap_end_exclusive = 0u;
+    uint32_t heap_mapped_end_exclusive = 0u;
+    uint32_t heap_current_after_reuse = 0u;
+    uint32_t alloc_a = 0u;
+    uint32_t alloc_b = 0u;
+    uint32_t alloc_c = 0u;
+    int free_a_ok = 0;
+    int reused_address_match_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 9B free-list reuse activation begin\n");
+
+    alloc_a = (uint32_t)(uintptr_t)stage8c_kheap_alloc(56u);
+    alloc_b = (uint32_t)(uintptr_t)stage8c_kheap_alloc(88u);
+
+    serial_write_label_hex("custom-os Stage 9B alloc A: ", alloc_a);
+    serial_write_label_hex("custom-os Stage 9B alloc B: ", alloc_b);
+
+    if (alloc_a == 0u || alloc_b == 0u || alloc_b <= alloc_a) {
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_before_reuse,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    free_a_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_a) != 0);
+    if (free_a_ok != 0) {
+        serial_write_text("custom-os Stage 9B free A accept: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9B free A accept: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_c = (uint32_t)(uintptr_t)stage8c_kheap_alloc(56u);
+    serial_write_label_hex("custom-os Stage 9B reuse allocation result: ", alloc_c);
+
+    reused_address_match_ok = (alloc_c == alloc_a);
+    if (reused_address_match_ok != 0) {
+        serial_write_text("custom-os Stage 9B reused-address match: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9B reused-address match: FAIL\n");
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_after_reuse,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (heap_current_after_reuse != heap_current_before_reuse) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 9B: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9B: FAIL\n");
+        panic("Stage 9B heap reuse activation failed", STAGE9B_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2064,7 +2141,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.9.0 (Stage 9A): init start\n");
+    serial_write_text("custom-os v0.9.1 (Stage 9B): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2090,6 +2167,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage8c_run_kheap_bootstrap_self_check();
     stage8d_run_kheap_validation_self_check();
     stage9a_run_kheap_free_groundwork_self_check();
+    stage9b_run_kheap_reuse_activation_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

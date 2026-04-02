@@ -1,4 +1,4 @@
-.section .multiboot
+.section .multiboot, "a"
 .align 8
 mb2_header_start:
 .long 0xE85250D6

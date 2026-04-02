@@ -22,11 +22,12 @@
 - stage-8c.md: complete, minimal heap bootstrap layer over Stage 8A reserved heap range with Stage 6B PMM-backed and Stage 8B-mapped one-page growth plus deterministic Stage 8C self-check markers.
 - stage-8d.md: complete, validation-only controlled heap allocation checks (alignment, monotonic ordering, mapped-end growth, and heap-window bounds) with deterministic Stage 8D PASS/FAIL markers.
 - stage-9a.md: complete, heap allocation metadata tracking and minimal free-validation groundwork verified with deterministic Stage 9A PASS markers (no reuse yet).
+- stage-9b.md: complete, deterministic exact-size freed-block reuse activation validated with Stage 9B PASS markers while preserving Stage 9A safety checks.
 
-Current focus: Stage 9 is split and active. Stage 9A is complete. Stage 9B, 9C, and 9D are not started.
+Current focus: Stage 9 is split and active. Stage 9A and Stage 9B are complete. Stage 9C and 9D are not started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
 Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, so full Stage 7 is complete.
 Stage 8 is split into 8A, 8B, 8C, and 8D. All Stage 8 sub-stages are complete, so full Stage 8 is complete.
-Stage 9 is split into 9A, 9B, 9C, and 9D. Stage 9A is complete; Stage 9B through Stage 9D are not started.
+Stage 9 is split into 9A, 9B, 9C, and 9D. Stage 9A and Stage 9B are complete; Stage 9C and Stage 9D are not started.
