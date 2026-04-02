@@ -18,6 +18,19 @@
 typedef uint32_t stage7a_pde_t;
 typedef uint32_t stage7a_pte_t;
 
+typedef struct __attribute__((aligned(STAGE7A_PAGING_PAGE_SIZE))) page_table {
+    stage7a_pte_t entries[STAGE7A_PAGING_ENTRIES_PER_TABLE];
+} page_table_t;
+
+typedef struct __attribute__((aligned(STAGE7A_PAGING_PAGE_SIZE))) page_directory {
+    stage7a_pde_t entries[STAGE7A_PAGING_ENTRIES_PER_TABLE];
+} page_directory_t;
+
+_Static_assert(sizeof(page_table_t) == STAGE7A_PAGING_PAGE_SIZE, "Stage 7B page table must be exactly 4 KiB");
+_Static_assert(sizeof(page_directory_t) == STAGE7A_PAGING_PAGE_SIZE, "Stage 7B page directory must be exactly 4 KiB");
+_Static_assert(_Alignof(page_table_t) == STAGE7A_PAGING_PAGE_SIZE, "Stage 7B page table must be 4 KiB aligned");
+_Static_assert(_Alignof(page_directory_t) == STAGE7A_PAGING_PAGE_SIZE, "Stage 7B page directory must be 4 KiB aligned");
+
 enum stage7a_paging_flags {
     STAGE7A_PAGING_FLAG_PRESENT = 1u << 0,
     STAGE7A_PAGING_FLAG_WRITABLE = 1u << 1,
@@ -37,6 +50,10 @@ uint32_t stage7a_paging_page_offset(uint32_t virtual_addr);
 uint32_t stage7a_paging_frame_addr(uint32_t addr);
 uint32_t stage7a_paging_identity_map_addr(uint32_t physical_addr);
 uint32_t stage7a_paging_make_entry(uint32_t frame_addr, uint32_t flags);
+
+void stage7b_setup_early_identity_paging(void);
+const page_directory_t* stage7b_get_early_page_directory(void);
+const page_table_t* stage7b_get_early_identity_page_table(void);
 
 #endif
 

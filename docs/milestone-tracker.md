@@ -29,10 +29,10 @@ Purpose: one-page status view for solo progress.
 | Stage 6D - Deterministic pending-free reuse activation and validation | complete | 2026-04-01 | Activate FIFO reuse from pending-free frames before fresh allocation, add minimal already-issued free check, and preserve baseline Stage 5D/6B behavior when reuse is not exercised | QEMU validation: dedicated Stage 6D reuse self-test passed with PASS markers for alloc A/B, free A accept, free B accept, duplicate free reject, never-issued reject, pending count after free, fifo reuse order, pending drained, and overall; baseline Stage 5A/5B/5C and Stage 5D outputs remained intact with no regressions. |
 | Stage 6 - PMM lifecycle baseline (6A-6D) | complete | 2026-04-01 | Stage 6A through Stage 6D delivered explicit PMM state, minimal alloc/free APIs, deterministic pending-free tracking, FIFO reuse activation, and validated reuse self-test behavior | Stage 6A, Stage 6B, Stage 6C, and Stage 6D evidence set |
 | Stage 7A - Paging model and non-activating groundwork | complete | 2026-04-02 | Define 32-bit non-PAE 4 KiB paging constants/flags/helpers, identity-map model, and deterministic self-check output; no CR0/CR3 activation | QEMU validation: Stage 7A self-check PASS for 0x12345000 decomposition and masked entry output; Stage 6 runtime unchanged |
-| Stage 7B - Static paging structures and setup groundwork | not-started | TBD | Define static paging structures and initial mapping setup without activation | Pending Stage 7B |
+| Stage 7B - Static paging structures and setup groundwork | complete | 2026-04-02 | Define aligned static page-directory/page-table aggregates, build deterministic first-4 MiB identity map setup, and validate structure/entry outputs without activation | QEMU validation: Stage 7B self-check PASS for 4 KiB structure sizes, first PTE, last PTE, and PDE[0]; Stage 7A output preserved; no CR0/CR3 writes |
 | Stage 7C - Paging activation path | not-started | TBD | Introduce controlled CR3/CR0 paging enable path | Pending Stage 7C |
 | Stage 7D - Identity-mapping validation and fault-aware verification | not-started | TBD | Validate identity mapping correctness and paging fault behavior | Pending Stage 7D |
-| Stage 7 - Paging bring-up suite (7A-7D) | in-progress | TBD | Complete paging model, setup, activation, and validation with no regressions | Stage 7A complete |
+| Stage 7 - Paging bring-up suite (7A-7D) | in-progress | TBD | Complete paging model, setup, activation, and validation with no regressions | Stage 7A and Stage 7B complete |
 
 ## Current focus
 
@@ -40,8 +40,8 @@ Purpose: one-page status view for solo progress.
 - Full Stage 5 is complete.
 - Stage 6A through Stage 6D are complete and validated.
 - Full Stage 6 is complete.
-- Stage 7A is complete (non-activating paging groundwork).
-- Next focus: Stage 7B planning and scope definition (still no paging activation).
+- Stage 7A and Stage 7B are complete (non-activating paging groundwork and static setup).
+- Next focus: Stage 7C planning for controlled paging activation gates.
 
 ## Weekly update template
 
@@ -59,13 +59,14 @@ Purpose: one-page status view for solo progress.
   - Stage 6D dedicated reuse self-test passed in QEMU (accept/reject/FIFO checks all PASS)
   - Stage 6 aggregate completion achieved (6A through 6D)
   - Stage 7A non-activating paging groundwork completed (helpers/constants/flags/decomposition + masked entry self-check)
+  - Stage 7B static paging structures and deterministic early identity mapping setup completed (4 KiB-aligned aggregates, first 4 MiB map, PDE[0] wiring, self-check markers)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 7B planning: define next paging milestone boundaries while keeping paging disabled
-  - Define validation gates for eventual page-structure construction without CR0/CR3 writes
+  - Stage 7C planning: define controlled CR3/CR0 activation sequence and rollback diagnostics
+  - Define validation gates for activation path while keeping pre-activation setup deterministic
   - Keep allocator and Stage 6 runtime behavior stable during Stage 7 follow-on work
 
 - Risk changes:
@@ -74,3 +75,4 @@ Purpose: one-page status view for solo progress.
   - Stage 6B validation completed with no regressions
   - Stage 6C validation completed with no regressions
   - Stage 6D validation completed with no regressions; reuse activation remains minimal and deterministic
+  - Stage 7B completed with paging still disabled by design; no CR3/CR0 writes introduced

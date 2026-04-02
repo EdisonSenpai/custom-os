@@ -158,6 +158,7 @@ static uint64_t g_stage6c_pending_free_count;
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
 static void stage7a_run_paging_groundwork_self_check(void);
+static void stage7b_run_static_paging_setup_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -997,6 +998,65 @@ static void stage7a_run_paging_groundwork_self_check(void)
     }
 }
 
+static void stage7b_run_static_paging_setup_self_check(void)
+{
+    const uint32_t expected_structure_size = STAGE7A_PAGING_PAGE_SIZE;
+    const uint32_t expected_first_pte = 0x00000003u;
+    const uint32_t expected_last_pte = 0x003FF003u;
+    const uint32_t expected_pde0 = stage7a_paging_make_entry(
+        (uint32_t)(uintptr_t)stage7b_get_early_identity_page_table(),
+        STAGE7A_PAGING_FLAG_PRESENT | STAGE7A_PAGING_FLAG_WRITABLE);
+    const uint32_t page_table_size = (uint32_t)sizeof(page_table_t);
+    const uint32_t page_directory_size = (uint32_t)sizeof(page_directory_t);
+    const page_table_t* identity_page_table = 0;
+    const page_directory_t* page_directory = 0;
+    uint32_t first_pte = 0u;
+    uint32_t last_pte = 0u;
+    uint32_t pde0 = 0u;
+    uint32_t passed = 1u;
+
+    stage7b_setup_early_identity_paging();
+
+    identity_page_table = stage7b_get_early_identity_page_table();
+    page_directory = stage7b_get_early_page_directory();
+    first_pte = identity_page_table->entries[0];
+    last_pte = identity_page_table->entries[STAGE7A_PAGING_ENTRIES_PER_TABLE - 1u];
+    pde0 = page_directory->entries[0];
+
+    serial_write_text("custom-os Stage 7B: static paging setup self-check\n");
+    serial_write_label_hex("custom-os Stage 7B page_table_t size : ", page_table_size);
+    serial_write_label_hex("custom-os Stage 7B page_directory_t size: ", page_directory_size);
+    serial_write_label_hex("custom-os Stage 7B first PTE         : ", first_pte);
+    serial_write_label_hex("custom-os Stage 7B last PTE          : ", last_pte);
+    serial_write_label_hex("custom-os Stage 7B PDE[0]            : ", pde0);
+
+    if (page_table_size != expected_structure_size) {
+        passed = 0u;
+    }
+
+    if (page_directory_size != expected_structure_size) {
+        passed = 0u;
+    }
+
+    if (first_pte != expected_first_pte) {
+        passed = 0u;
+    }
+
+    if (last_pte != expected_last_pte) {
+        passed = 0u;
+    }
+
+    if (pde0 != expected_pde0) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 7B self-check: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 7B self-check: FAIL\n");
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1316,6 +1376,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage5c_prepare_frame_bookkeeping();
     stage5d_run_boot_allocation_test();
     stage7a_run_paging_groundwork_self_check();
+    stage7b_run_static_paging_setup_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
