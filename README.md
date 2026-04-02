@@ -2,7 +2,7 @@
 
 > Current status: Stage 7 complete (7A + 7B + 7C + 7D) and verified in QEMU
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The current baseline is Stage 7 complete with active paging enabled on top of the validated Stage 6 PMM lifecycle baseline.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 7 complete with active paging enabled on top of the validated Stage 6 PMM lifecycle baseline.
 
 ## Architecture snapshot (Stage 7)
 
