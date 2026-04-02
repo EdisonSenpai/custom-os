@@ -86,3 +86,40 @@ const page_table_t* stage7b_get_early_identity_page_table(void)
 {
     return &g_stage7b_early_identity_page_table;
 }
+
+void stage7c_load_cr3_with_early_page_directory(void)
+{
+    const uint32_t page_directory_frame =
+        stage7a_paging_frame_addr((uint32_t)(uintptr_t)stage7b_get_early_page_directory());
+
+    __asm__ volatile ("mov %0, %%cr3" : : "r"(page_directory_frame) : "memory");
+}
+
+void stage7c_set_cr0_paging_enable(void)
+{
+    const uint32_t updated_cr0 = stage7c_read_cr0() | STAGE7C_CR0_PG_MASK;
+
+    __asm__ volatile (
+        "mov %0, %%cr0\n\t"
+        "jmp 1f\n"
+        "1:\n"
+        :
+        : "r"(updated_cr0)
+        : "memory");
+}
+
+uint32_t stage7c_read_cr0(void)
+{
+    uint32_t cr0 = 0u;
+
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(cr0));
+    return cr0;
+}
+
+uint32_t stage7c_read_cr3(void)
+{
+    uint32_t cr3 = 0u;
+
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3));
+    return cr3;
+}

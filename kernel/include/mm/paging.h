@@ -14,6 +14,7 @@
 #define STAGE7A_PAGING_PD_INDEX_SHIFT 22u
 #define STAGE7A_PAGING_ENTRIES_PER_TABLE 1024u
 #define STAGE7A_PAGING_FLAG_MASK 0x00000FFFu
+#define STAGE7C_CR0_PG_MASK (1u << 31)
 
 typedef uint32_t stage7a_pde_t;
 typedef uint32_t stage7a_pte_t;
@@ -54,6 +55,11 @@ uint32_t stage7a_paging_make_entry(uint32_t frame_addr, uint32_t flags);
 void stage7b_setup_early_identity_paging(void);
 const page_directory_t* stage7b_get_early_page_directory(void);
 const page_table_t* stage7b_get_early_identity_page_table(void);
+
+void stage7c_load_cr3_with_early_page_directory(void);
+void stage7c_set_cr0_paging_enable(void);
+uint32_t stage7c_read_cr0(void);
+uint32_t stage7c_read_cr3(void);
 
 #endif
 

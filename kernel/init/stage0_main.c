@@ -159,6 +159,7 @@ __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail)
 static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
 static void stage7a_run_paging_groundwork_self_check(void);
 static void stage7b_run_static_paging_setup_self_check(void);
+static void stage7c_run_paging_activation_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1057,6 +1058,42 @@ static void stage7b_run_static_paging_setup_self_check(void)
     }
 }
 
+static void stage7c_run_paging_activation_self_check(void)
+{
+    const uint32_t expected_cr3 =
+        stage7a_paging_frame_addr((uint32_t)(uintptr_t)stage7b_get_early_page_directory());
+    uint32_t observed_cr3 = 0u;
+    uint32_t observed_cr0 = 0u;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 7C: paging activation begin\n");
+    serial_write_label_hex("custom-os Stage 7C expected CR3   : ", expected_cr3);
+
+    stage7c_load_cr3_with_early_page_directory();
+    stage7c_set_cr0_paging_enable();
+
+    observed_cr3 = stage7c_read_cr3();
+    observed_cr0 = stage7c_read_cr0();
+
+    serial_write_label_hex("custom-os Stage 7C observed CR3   : ", observed_cr3);
+    serial_write_label_hex("custom-os Stage 7C observed CR0   : ", observed_cr0);
+
+    if (stage7a_paging_frame_addr(observed_cr3) != expected_cr3) {
+        passed = 0u;
+    }
+
+    if ((observed_cr0 & STAGE7C_CR0_PG_MASK) == 0u) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 7C activation: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 7C activation: FAIL\n");
+        panic("Stage 7C paging activation failed", observed_cr0);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1377,6 +1414,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage5d_run_boot_allocation_test();
     stage7a_run_paging_groundwork_self_check();
     stage7b_run_static_paging_setup_self_check();
+    stage7c_run_paging_activation_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
