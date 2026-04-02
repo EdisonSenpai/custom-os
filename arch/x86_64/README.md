@@ -1,6 +1,6 @@
 # x86_64 Architecture Notes
 
-Current status: Stage 6 baseline in 32-bit protected mode.
+Current status: Stage 7 baseline in 32-bit protected mode with active paging.
 
 Current files in this folder:
 
@@ -12,7 +12,7 @@ Current architecture responsibilities:
 - CPU exception entry stubs for early bring-up diagnostics.
 - IRQ entry stubs for timer IRQ0 and keyboard IRQ1.
 - Minimal assembly-to-C dispatch glue with simple, explicit control flow.
-- Stable handoff into Stage 6 baseline runtime in C.
+- Stable handoff into Stage 7 baseline runtime in C.
 
 Not implemented in this folder yet:
 

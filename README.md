@@ -1,13 +1,14 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 6 complete (6A + 6B + 6C + 6D) and verified in QEMU
+> Current status: Stage 7 complete (7A + 7B + 7C + 7D) and verified in QEMU
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The current baseline is Stage 6 complete, combining Stage 4 interrupt behavior with a validated minimal PMM lifecycle.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The current baseline is Stage 7 complete with active paging enabled on top of the validated Stage 6 PMM lifecycle baseline.
 
-## Architecture snapshot (Stage 6)
+## Architecture snapshot (Stage 7)
 
 - 32-bit protected mode (Multiboot2 entry)
-- No paging yet
+- Paging enabled (CR3 loaded and CR0.PG set)
+- Static first-4 MiB identity mapping active
 - Bootloader-provided GDT in use
 - IDT installed at runtime
 - Exceptions handled via assembly stubs to C dispatcher
@@ -16,8 +17,10 @@ CustomOS is a from-scratch operating system project focused on low-level correct
 - Keyboard IRQ1 routed through IDT and raw scancodes read from port 0x60
 - Multiboot2 memory map parsing and early frame bookkeeping
 - Minimal PMM API: deterministic frame allocation, minimal free API, deterministic pending-free tracking, and FIFO reuse activation
+- PMM lifecycle baseline (Stage 6A through Stage 6D) remains active
+- Stage 6 timer and keyboard runtime behavior remains active under paging
 
-## Current baseline (Stage 6)
+## Current baseline (Stage 7)
 
 Implemented and verified:
 
@@ -43,8 +46,12 @@ Implemented and verified:
 - Stage 6B: minimal exported PMM allocation API.
 - Stage 6C: minimal exported PMM free API and deterministic pending-free tracking.
 - Stage 6D: deterministic FIFO reuse activation and dedicated reuse self-test validation.
+- Stage 7A: non-activating paging model helpers and deterministic groundwork self-check.
+- Stage 7B: static aligned paging structures and deterministic first-4 MiB identity-map setup.
+- Stage 7C: explicit CR3 load and CR0.PG paging activation path.
+- Stage 7D: active paging validation with deterministic CR3/CR0 markers, identity probes, and non-destructive page-fault-awareness confirmation.
 
-## Stage 6 highlights
+## Stage 7 highlights
 
 - Stage 4 interrupt runtime behavior remains active after Stage 6 PMM lifecycle bring-up.
 - Stage 5A and 5B provide safe parsing and accounting summaries from Multiboot2 data.
@@ -52,6 +59,8 @@ Implemented and verified:
 - Stage 5D proves deterministic frame handout behavior without introducing full allocator lifecycle complexity.
 - Stage 6C adds deterministic pending-free tracking.
 - Stage 6D activates deterministic FIFO reuse while preserving baseline boot/runtime behavior.
+- Stage 7C enables paging with explicit CR3/CR0 control-register operations.
+- Stage 7D validates active paging state and first-4 MiB identity behavior while preserving Stage 6 timer/keyboard runtime.
 
 ## Scope boundaries
 
@@ -61,11 +70,12 @@ Implemented now:
 - Stage 6 deterministic startup messages on VGA and serial.
 - Stage 4 IRQ runtime behavior (timer plus keyboard) and Stage 2 exception diagnostics.
 - Minimal PMM lifecycle through Stage 6A to Stage 6D.
+- Static identity-mapped paging baseline through Stage 7A to Stage 7D.
 
 Deliberately not implemented yet:
 
 - Advanced frame lifecycle features beyond current deterministic minimal PMM model.
-- Paging and virtual memory.
+- Advanced virtual memory work beyond the current static first-4 MiB identity-mapped paging baseline.
 - Heap/kmalloc.
 - Scheduler and task switching.
 - Filesystem and user-mode runtime.
@@ -100,12 +110,13 @@ make iso
 
 ## Expected output
 
-### Normal Stage 6 run
+### Normal Stage 7 run
 
 VGA and COM1 serial should show:
 
-- custom-os Stage 6: init start
+- custom-os v0.7.0 (Stage 7): init start
 - custom-os Stage 5A/B/C/D summary markers
+- custom-os Stage 7A/7B/7C/7D markers
 - custom-os Stage 6: Multiboot2 handoff OK
 - custom-os Stage 6: IDT installed
 - custom-os Stage 6: PIC remapped + PIT started
@@ -171,9 +182,9 @@ Expected panic output (VGA and serial):
 
 ## Future direction
 
-- Stage 7 planning only.
-- Paging groundwork definition and validation gates.
-- Keep current Stage 6 baseline stable while Stage 7 scope is finalized.
+- Keep the Stage 7 baseline stable under routine validation.
+- Preserve Stage 6 runtime behavior while paging is active.
+- Define next milestone scope only after Stage 7 regressions remain clear.
 
 ## Key docs
 
@@ -194,3 +205,7 @@ Expected panic output (VGA and serial):
 - docs/milestones/stage-6b.md
 - docs/milestones/stage-6c.md
 - docs/milestones/stage-6d.md
+- docs/milestones/stage-7a.md
+- docs/milestones/stage-7b.md
+- docs/milestones/stage-7c.md
+- docs/milestones/stage-7d.md

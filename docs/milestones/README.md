@@ -16,9 +16,10 @@
 - stage-7a.md: complete, non-PAE 4 KiB paging groundwork helpers and deterministic non-activating self-check markers.
 - stage-7b.md: complete, static 4 KiB-aligned paging aggregates and deterministic first-4 MiB identity-map setup self-check with paging still disabled.
 - stage-7c.md: complete, explicit CR3 load and CR0.PG activation path validated in QEMU with continued execution and no Stage 6 runtime regressions.
+- stage-7d.md: complete, active paging validation with deterministic CR3/CR0 markers, first-4 MiB identity probes, and non-destructive page-fault-awareness confirmation.
 
-Current focus: Stage 6 complete and Stage 7A plus Stage 7B complete; Stage 7C activation path is implemented and in-progress pending runtime validation.
+Current focus: Stage 7 complete (7A through 7D), verified in QEMU with active paging baseline validation in place. Stage 8 planning only (not started).
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
-Stage 7 is split into 7A, 7B, 7C, and 7D. Stage 7A, Stage 7B, and Stage 7C are complete; Stage 7D is not started.
+Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, so full Stage 7 is complete.

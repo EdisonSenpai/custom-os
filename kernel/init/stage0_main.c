@@ -39,6 +39,10 @@
 #define PIT_COMMAND 0x43u
 #define PIT_INPUT_HZ 1193182u
 #define PIT_TARGET_HZ 100u
+#define STAGE7D_IDENTITY_MAP_MAX_ADDR 0x003FFFFFu
+#define STAGE7D_PROBE_ADDR_LOW_PAGE 0x00001000u
+#define STAGE7D_PROBE_ADDR_VGA_TEXT 0x000B8000u
+#define STAGE7D_PF_AWARE_ADDR 0x00400000u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -160,6 +164,7 @@ static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
 static void stage7a_run_paging_groundwork_self_check(void);
 static void stage7b_run_static_paging_setup_self_check(void);
 static void stage7c_run_paging_activation_self_check(void);
+static void stage7d_run_identity_validation_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1094,6 +1099,105 @@ static void stage7c_run_paging_activation_self_check(void)
     }
 }
 
+static uint32_t stage7d_probe_read32(uint32_t addr)
+{
+    const volatile uint32_t* probe_ptr = (const volatile uint32_t*)(uintptr_t)addr;
+
+    return *probe_ptr;
+}
+
+static void stage7d_run_identity_validation_self_check(void)
+{
+    const uint32_t expected_cr3 =
+        stage7a_paging_frame_addr((uint32_t)(uintptr_t)stage7b_get_early_page_directory());
+    const page_directory_t* page_directory = stage7b_get_early_page_directory();
+    const page_table_t* identity_page_table = stage7b_get_early_identity_page_table();
+    const uint32_t probe_low_pt_index = stage7a_paging_pt_index(STAGE7D_PROBE_ADDR_LOW_PAGE);
+    const uint32_t probe_vga_pt_index = stage7a_paging_pt_index(STAGE7D_PROBE_ADDR_VGA_TEXT);
+    const uint32_t probe_low_expected_pte = stage7a_paging_make_entry(
+        STAGE7D_PROBE_ADDR_LOW_PAGE,
+        STAGE7A_PAGING_FLAG_PRESENT | STAGE7A_PAGING_FLAG_WRITABLE);
+    const uint32_t probe_vga_expected_pte = stage7a_paging_make_entry(
+        STAGE7D_PROBE_ADDR_VGA_TEXT,
+        STAGE7A_PAGING_FLAG_PRESENT | STAGE7A_PAGING_FLAG_WRITABLE);
+    uint32_t observed_cr3 = 0u;
+    uint32_t observed_cr0 = 0u;
+    uint32_t probe_low_pte = 0u;
+    uint32_t probe_vga_pte = 0u;
+    uint32_t probe_low_read = 0u;
+    uint32_t probe_vga_read = 0u;
+    uint32_t page_fault_awareness_ok = 1u;
+    uint32_t passed = 1u;
+
+    observed_cr3 = stage7c_read_cr3();
+    observed_cr0 = stage7c_read_cr0();
+    probe_low_pte = identity_page_table->entries[probe_low_pt_index];
+    probe_vga_pte = identity_page_table->entries[probe_vga_pt_index];
+
+    serial_write_text("custom-os Stage 7D validation begin\n");
+    serial_write_label_hex("custom-os Stage 7D observed CR3 under active paging: ", observed_cr3);
+    serial_write_label_hex("custom-os Stage 7D observed CR0 under active paging: ", observed_cr0);
+
+    probe_low_read = stage7d_probe_read32(STAGE7D_PROBE_ADDR_LOW_PAGE);
+    probe_vga_read = stage7d_probe_read32(STAGE7D_PROBE_ADDR_VGA_TEXT);
+
+    serial_write_text("custom-os Stage 7D identity-map probe results\n");
+    serial_write_label_hex("custom-os Stage 7D probe low addr : ", STAGE7D_PROBE_ADDR_LOW_PAGE);
+    serial_write_label_hex("custom-os Stage 7D probe low pte  : ", probe_low_pte);
+    serial_write_label_hex("custom-os Stage 7D probe low read : ", probe_low_read);
+    serial_write_label_hex("custom-os Stage 7D probe vga addr : ", STAGE7D_PROBE_ADDR_VGA_TEXT);
+    serial_write_label_hex("custom-os Stage 7D probe vga pte  : ", probe_vga_pte);
+    serial_write_label_hex("custom-os Stage 7D probe vga read : ", probe_vga_read);
+
+    if ((observed_cr0 & STAGE7C_CR0_PG_MASK) == 0u) {
+        passed = 0u;
+    }
+
+    if (stage7a_paging_frame_addr(observed_cr3) != expected_cr3) {
+        passed = 0u;
+    }
+
+    if (stage7a_paging_pd_index(STAGE7D_PROBE_ADDR_LOW_PAGE) != 0u
+        || stage7a_paging_pd_index(STAGE7D_PROBE_ADDR_VGA_TEXT) != 0u) {
+        passed = 0u;
+    }
+
+    if (page_directory->entries[0] == 0u) {
+        passed = 0u;
+    }
+
+    if (probe_low_pte != probe_low_expected_pte) {
+        passed = 0u;
+    }
+
+    if (probe_vga_pte != probe_vga_expected_pte) {
+        passed = 0u;
+    }
+
+    if (stage7a_paging_pd_index(STAGE7D_PF_AWARE_ADDR) != 1u
+        || STAGE7D_PF_AWARE_ADDR <= STAGE7D_IDENTITY_MAP_MAX_ADDR
+        || page_directory->entries[1] != 0u) {
+        page_fault_awareness_ok = 0u;
+        passed = 0u;
+    }
+
+    serial_write_label_hex("custom-os Stage 7D page-fault-aware addr : ", STAGE7D_PF_AWARE_ADDR);
+    serial_write_label_hex("custom-os Stage 7D page-fault-aware PDE[1]: ", page_directory->entries[1]);
+
+    if (page_fault_awareness_ok != 0u) {
+        serial_write_text("custom-os Stage 7D page-fault-awareness confirmation: PASS (guarded, no forced fault)\n");
+    } else {
+        serial_write_text("custom-os Stage 7D page-fault-awareness confirmation: FAIL\n");
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 7D validation: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 7D validation: FAIL\n");
+        panic("Stage 7D paging validation failed", observed_cr0);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1395,7 +1499,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os Stage 6: init start\n");
+    serial_write_text("custom-os v0.7.0 (Stage 7): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -1415,6 +1519,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage7a_run_paging_groundwork_self_check();
     stage7b_run_static_paging_setup_self_check();
     stage7c_run_paging_activation_self_check();
+    stage7d_run_identity_validation_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

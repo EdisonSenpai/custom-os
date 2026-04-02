@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 6 early kernel baseline is active.
+Current status: Stage 7 early kernel baseline is active with paging enabled.
 
 Current implementation location:
 
@@ -21,6 +21,10 @@ Current capabilities:
 - Stage 6B minimal exported PMM allocation API.
 - Stage 6C minimal exported PMM free API with deterministic pending-free tracking.
 - Stage 6D deterministic FIFO reuse activation with dedicated self-test path.
+- Stage 7A paging model and non-activating groundwork.
+- Stage 7B static first-4 MiB identity mapping setup.
+- Stage 7C explicit CR3 load and CR0.PG activation path.
+- Stage 7D active paging validation with identity probes and non-destructive fault-awareness checks.
 
 Not implemented yet:
 
@@ -28,4 +32,4 @@ Not implemented yet:
 - Full memory management subsystem lifecycle.
 - Filesystem and user-mode runtime.
 - Full keyboard input processing pipeline.
-- Paging, virtual memory, and heap/kmalloc.
+- Advanced virtual memory features beyond the current static identity-mapped paging baseline, and heap/kmalloc.

@@ -1,6 +1,6 @@
 # GRUB Configuration Notes
 
-Current status: active in Stage 6.
+Current status: active in Stage 7.
 
 Current files:
 

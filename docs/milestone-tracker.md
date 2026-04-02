@@ -30,19 +30,16 @@ Purpose: one-page status view for solo progress.
 | Stage 6 - PMM lifecycle baseline (6A-6D) | complete | 2026-04-01 | Stage 6A through Stage 6D delivered explicit PMM state, minimal alloc/free APIs, deterministic pending-free tracking, FIFO reuse activation, and validated reuse self-test behavior | Stage 6A, Stage 6B, Stage 6C, and Stage 6D evidence set |
 | Stage 7A - Paging model and non-activating groundwork | complete | 2026-04-02 | Define 32-bit non-PAE 4 KiB paging constants/flags/helpers, identity-map model, and deterministic self-check output; no CR0/CR3 activation | QEMU validation: Stage 7A self-check PASS for 0x12345000 decomposition and masked entry output; Stage 6 runtime unchanged |
 | Stage 7B - Static paging structures and setup groundwork | complete | 2026-04-02 | Define aligned static page-directory/page-table aggregates, build deterministic first-4 MiB identity map setup, and validate structure/entry outputs without activation | QEMU validation: Stage 7B self-check PASS for 4 KiB structure sizes, first PTE, last PTE, and PDE[0]; Stage 7A output preserved; no CR0/CR3 writes |
-| Stage 7C - Paging activation path | complete | 2026-04-02 | Implement explicit CR3 load plus CR0.PG set activation path using static Stage 7B identity structures with deterministic PASS markers and continued runtime execution | QEMU validation: Stage 7C activation PASS with expected CR3 = observed CR3, observed CR0 showing paging enabled, Stage 7A/7B output preserved, and Stage 6 timer/keyboard runtime unchanged |
-| Stage 7D - Identity-mapping validation and fault-aware verification | not-started | TBD | Validate identity mapping correctness and paging fault behavior | Pending Stage 7D |
-| Stage 7 - Paging bring-up suite (7A-7D) | in-progress | TBD | Complete paging model, setup, activation, and validation with no regressions | Stage 7A, Stage 7B, and Stage 7C complete |
+| Stage 7C - Paging activation path | complete | 2026-04-02 | Implement explicit CR3 load plus CR0.PG set activation path using static Stage 7B identity structures with deterministic PASS markers and continued runtime execution | QEMU validation: Stage 7C activation PASS with expected CR3 = observed CR3 = 0x0010B000, observed CR0 = 0x80000011 (CR0.PG set), Stage 7A/7B output preserved, and Stage 6 timer/keyboard runtime unchanged |
+| Stage 7D - Identity-mapping validation and fault-aware verification | complete | 2026-04-02 | Validate active paging state, CR3 consistency, first-4 MiB identity probes, and non-destructive page-fault awareness with deterministic serial markers | QEMU validation: Stage 7D markers emitted for validation begin, observed CR3 = 0x0010B000 and observed CR0 = 0x80000011 under active paging, identity probes passed for 0x00001000 and 0x000B8000, page-fault-awareness confirmed via unmapped 0x00400000 with PDE[1] = 0, Stage 7D PASS, and Stage 6 timer/keyboard runtime unchanged |
+| Stage 7 - Paging bring-up suite (7A-7D) | complete | 2026-04-02 | Complete paging model, setup, activation, and validation with no regressions | Stage 7A through Stage 7D evidence set |
 
 ## Current focus
 
-- Stage 5A through Stage 5D are complete and verified.
-- Full Stage 5 is complete.
-- Stage 6A through Stage 6D are complete and validated.
-- Full Stage 6 is complete.
-- Stage 7A, Stage 7B, and Stage 7C are complete (paging model, static setup, and activation path).
-- Stage 7D remains not-started.
-- Next focus: Stage 7D identity-mapping and fault-aware verification.
+- Stage 7A through Stage 7D are complete and verified in QEMU.
+- Full Stage 7 is complete.
+- Current baseline: Stage 7 with active first-4 MiB identity-mapped paging and Stage 6 runtime continuity.
+- Next focus: Stage 8 planning only (not started).
 
 ## Weekly update template
 
@@ -62,14 +59,16 @@ Purpose: one-page status view for solo progress.
   - Stage 7A non-activating paging groundwork completed (helpers/constants/flags/decomposition + masked entry self-check)
   - Stage 7B static paging structures and deterministic early identity mapping setup completed (4 KiB-aligned aggregates, first 4 MiB map, PDE[0] wiring, self-check markers)
   - Stage 7C explicit activation path implemented (CR3 load from static Stage 7B directory, CR0.PG set, deterministic pre/post serial markers, post-enable PASS/FAIL check)
+  - Stage 7D active paging validation completed (active CR3/CR0 checks, identity probes for 0x00001000 and 0x000B8000, non-destructive page-fault-awareness confirmation via unmapped 0x00400000/PDE[1], deterministic PASS marker)
+  - Stage 7 aggregate completion achieved (7A through 7D)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 7C runtime validation in QEMU and evidence capture for PASS path
-  - Confirm Stage 6 runtime behavior remains stable with paging enabled
-  - Prepare Stage 7D planning only after Stage 7C validation is complete
+  - Keep Stage 7 baseline stable under routine boot/runtime checks
+  - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
+  - Stage 8 planning only (not started)
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -78,4 +77,4 @@ Purpose: one-page status view for solo progress.
   - Stage 6C validation completed with no regressions
   - Stage 6D validation completed with no regressions; reuse activation remains minimal and deterministic
   - Stage 7B completed with paging still disabled by design; no CR3/CR0 writes introduced
-  - Stage 7C introduces explicit CR3/CR0 writes in early init; status remains in-progress until runtime validation confirms no boot/runtime regressions
+  - Stage 7C and Stage 7D now run in early init; preserve first-4 MiB identity assumptions unless milestone scope explicitly changes
