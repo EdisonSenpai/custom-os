@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+#include "mm/paging.h"
+
 #define VGA_TEXT_BUFFER ((volatile uint16_t*)0xB8000)
 #define VGA_ATTR 0x0F
 #define VGA_WIDTH 80
@@ -155,6 +157,7 @@ static uint64_t g_stage6c_pending_free_count;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
+static void stage7a_run_paging_groundwork_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -940,6 +943,60 @@ static void stage5d_run_boot_allocation_test(void)
     serial_write_label_hex64("custom-os Stage 5D remaining eligible frames: ", stage6b_pmm_get_remaining_frames());
 }
 
+static void stage7a_run_paging_groundwork_self_check(void)
+{
+    const uint32_t sample_vaddr = 0x12345000u;
+    const uint32_t sample_unaligned_addr = 0x12345ABCu;
+    const uint32_t expected_pd_index = 0x48u;
+    const uint32_t expected_pt_index = 0x345u;
+    const uint32_t expected_page_offset = 0x0u;
+    const uint32_t expected_identity_addr = 0x12345000u;
+    const uint32_t expected_entry = 0x12345003u;
+    const uint32_t pd_index = stage7a_paging_pd_index(sample_vaddr);
+    const uint32_t pt_index = stage7a_paging_pt_index(sample_vaddr);
+    const uint32_t page_offset = stage7a_paging_page_offset(sample_vaddr);
+    const uint32_t identity_addr = stage7a_paging_identity_map_addr(sample_unaligned_addr);
+    const uint32_t entry = stage7a_paging_make_entry(
+        sample_unaligned_addr,
+        STAGE7A_PAGING_FLAG_PRESENT | STAGE7A_PAGING_FLAG_WRITABLE);
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 7A: paging groundwork self-check\n");
+    serial_write_label_hex("custom-os Stage 7A sample vaddr: ", sample_vaddr);
+    serial_write_label_hex("custom-os Stage 7A pd index    : ", pd_index);
+    serial_write_label_hex("custom-os Stage 7A pt index    : ", pt_index);
+    serial_write_label_hex("custom-os Stage 7A page offset : ", page_offset);
+    serial_write_label_hex("custom-os Stage 7A identity addr: ", identity_addr);
+    serial_write_label_hex("custom-os Stage 7A entry source: ", sample_unaligned_addr);
+    serial_write_label_hex("custom-os Stage 7A entry value : ", entry);
+
+    if (pd_index != expected_pd_index) {
+        passed = 0u;
+    }
+
+    if (pt_index != expected_pt_index) {
+        passed = 0u;
+    }
+
+    if (page_offset != expected_page_offset) {
+        passed = 0u;
+    }
+
+    if (identity_addr != expected_identity_addr) {
+        passed = 0u;
+    }
+
+    if (entry != expected_entry) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 7A self-check: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 7A self-check: FAIL\n");
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1258,6 +1315,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage5a_parse_mmap(mb2_info_addr);
     stage5c_prepare_frame_bookkeeping();
     stage5d_run_boot_allocation_test();
+    stage7a_run_paging_groundwork_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

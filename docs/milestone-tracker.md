@@ -28,6 +28,11 @@ Purpose: one-page status view for solo progress.
 | Stage 6C - PMM minimal free API and pending-free tracking | complete | TBD | Export stage6c_pmm_free_frame and stage6c_pmm_get_pending_free_frames; validate free inputs and record deterministic pending-free entries only; no reuse activation and no allocation-path behavior change | QEMU validation: build and boot succeeded; Stage 5A/5B/5C output intact; Stage 5D deterministic allocation output intact; allocated frame addresses unchanged; remaining eligible-frame count correct; Stage 4 timer+keyboard IRQ output continued after Stage 5D; no regressions. |
 | Stage 6D - Deterministic pending-free reuse activation and validation | complete | TBD | Activate FIFO reuse from pending-free frames before fresh allocation, add minimal already-issued free check, and preserve baseline Stage 5D/6B behavior when reuse is not exercised | QEMU validation: dedicated Stage 6D reuse self-test passed with PASS markers for alloc A/B, free A accept, free B accept, duplicate free reject, never-issued reject, pending count after free, fifo reuse order, pending drained, and overall; baseline Stage 5A/5B/5C and Stage 5D outputs remained intact with no regressions. |
 | Stage 6 - PMM lifecycle baseline (6A-6D) | complete | TBD | Stage 6A through Stage 6D delivered explicit PMM state, minimal alloc/free APIs, deterministic pending-free tracking, FIFO reuse activation, and validated reuse self-test behavior | Stage 6A, Stage 6B, Stage 6C, and Stage 6D evidence set |
+| Stage 7A - Paging model and non-activating groundwork | complete | TBD | Define 32-bit non-PAE 4 KiB paging constants/flags/helpers, identity-map model, and deterministic self-check output; no CR0/CR3 activation | QEMU validation: Stage 7A self-check PASS for 0x12345000 decomposition and masked entry output; Stage 6 runtime unchanged |
+| Stage 7B - Static paging structures and setup groundwork | not-started | TBD | Define static paging structures and initial mapping setup without activation | Pending Stage 7B |
+| Stage 7C - Paging activation path | not-started | TBD | Introduce controlled CR3/CR0 paging enable path | Pending Stage 7C |
+| Stage 7D - Identity-mapping validation and fault-aware verification | not-started | TBD | Validate identity mapping correctness and paging fault behavior | Pending Stage 7D |
+| Stage 7 - Paging bring-up suite (7A-7D) | in-progress | TBD | Complete paging model, setup, activation, and validation with no regressions | Stage 7A complete |
 
 ## Current focus
 
@@ -35,11 +40,12 @@ Purpose: one-page status view for solo progress.
 - Full Stage 5 is complete.
 - Stage 6A through Stage 6D are complete and validated.
 - Full Stage 6 is complete.
-- Next focus: Stage 7 planning only (paging groundwork definition), with no Stage 7 implementation started.
+- Stage 7A is complete (non-activating paging groundwork).
+- Next focus: Stage 7B planning and scope definition (still no paging activation).
 
 ## Weekly update template
 
-- Week of: 2026-04-01
+- Week of: 2026-04-02
 
 - Completed:
   - Stage 5A memory map parsing
@@ -52,14 +58,15 @@ Purpose: one-page status view for solo progress.
   - Stage 6D deterministic FIFO reuse activation completed and validated (baseline path stable, no regressions)
   - Stage 6D dedicated reuse self-test passed in QEMU (accept/reject/FIFO checks all PASS)
   - Stage 6 aggregate completion achieved (6A through 6D)
+  - Stage 7A non-activating paging groundwork completed (helpers/constants/flags/decomposition + masked entry self-check)
 
 - Blockers:
   - None
 
 - Next focus:
-  - Stage 7 planning only: define paging groundwork scope and interfaces
-  - Stage 7 planning only: define validation gates before implementation starts
-  - Keep allocator behavior stable while Stage 7 planning is drafted
+  - Stage 7B planning: define next paging milestone boundaries while keeping paging disabled
+  - Define validation gates for eventual page-structure construction without CR0/CR3 writes
+  - Keep allocator and Stage 6 runtime behavior stable during Stage 7 follow-on work
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
