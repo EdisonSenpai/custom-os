@@ -8,6 +8,19 @@
 extern int stage6b_pmm_alloc_frame(uint64_t* out_phys_addr);
 
 #define STAGE8C_KHEAP_MIN_ALIGNMENT 8u
+#define STAGE9A_KHEAP_ALLOCATION_HEADER_MAGIC 0x39414C48u
+#define STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED 1u
+#define STAGE9A_KHEAP_ALLOCATION_STATE_FREED 2u
+
+struct stage9a_kheap_allocation_header {
+    uint32_t magic;
+    uint32_t payload_size;
+    uint32_t state;
+    uint32_t reserved;
+};
+
+typedef char stage9a_kheap_allocation_header_size_must_be_16[
+    (sizeof(struct stage9a_kheap_allocation_header) == 16u) ? 1 : -1];
 
 struct stage8c_kheap_state {
     uint32_t is_initialized;
@@ -96,9 +109,12 @@ int stage8c_kheap_bootstrap_init(void)
 void* stage8c_kheap_alloc(uint32_t size)
 {
     uint32_t aligned_size = 0u;
+    uint32_t payload_start = 0u;
     uint32_t allocation_end_exclusive = 0u;
     uint32_t required_mapped_end_exclusive = 0u;
-    const uint32_t allocation_start = g_stage8c_kheap.current;
+    const uint32_t allocation_header_start = g_stage8c_kheap.current;
+    struct stage9a_kheap_allocation_header* allocation_header =
+        (struct stage9a_kheap_allocation_header*)(uintptr_t)0;
 
     if (g_stage8c_kheap.is_initialized == 0u || size == 0u) {
         return (void*)0;
@@ -108,11 +124,18 @@ void* stage8c_kheap_alloc(uint32_t size)
         return (void*)0;
     }
 
-    if (aligned_size > (g_stage8c_kheap.end_exclusive - g_stage8c_kheap.current)) {
+    if (allocation_header_start
+        > (g_stage8c_kheap.end_exclusive - (uint32_t)sizeof(struct stage9a_kheap_allocation_header))) {
         return (void*)0;
     }
 
-    allocation_end_exclusive = allocation_start + aligned_size;
+    payload_start = allocation_header_start + (uint32_t)sizeof(struct stage9a_kheap_allocation_header);
+
+    if (aligned_size > (g_stage8c_kheap.end_exclusive - payload_start)) {
+        return (void*)0;
+    }
+
+    allocation_end_exclusive = payload_start + aligned_size;
     if (stage8c_kheap_align_up(
             allocation_end_exclusive,
             STAGE7A_PAGING_PAGE_SIZE,
@@ -125,8 +148,79 @@ void* stage8c_kheap_alloc(uint32_t size)
         return (void*)0;
     }
 
+    allocation_header =
+        (struct stage9a_kheap_allocation_header*)(uintptr_t)allocation_header_start;
+    allocation_header->magic = STAGE9A_KHEAP_ALLOCATION_HEADER_MAGIC;
+    allocation_header->payload_size = aligned_size;
+    allocation_header->state = STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED;
+    allocation_header->reserved = 0u;
+
     g_stage8c_kheap.current = allocation_end_exclusive;
-    return (void*)(uintptr_t)allocation_start;
+    return (void*)(uintptr_t)payload_start;
+}
+
+int stage9a_kheap_free(void* ptr)
+{
+    uint32_t cursor = 0u;
+    uint32_t target_ptr = 0u;
+
+    if (g_stage8c_kheap.is_initialized == 0u || ptr == (void*)0) {
+        return 0;
+    }
+
+    target_ptr = (uint32_t)(uintptr_t)ptr;
+    if (target_ptr < g_stage8c_kheap.start || target_ptr >= g_stage8c_kheap.current) {
+        return 0;
+    }
+
+    cursor = g_stage8c_kheap.start;
+    while (cursor < g_stage8c_kheap.current) {
+        struct stage9a_kheap_allocation_header* header =
+            (struct stage9a_kheap_allocation_header*)(uintptr_t)cursor;
+        uint32_t payload_start = 0u;
+        uint32_t payload_end_exclusive = 0u;
+
+        if (cursor > (g_stage8c_kheap.current - (uint32_t)sizeof(struct stage9a_kheap_allocation_header))) {
+            return 0;
+        }
+
+        if (header->magic != STAGE9A_KHEAP_ALLOCATION_HEADER_MAGIC) {
+            return 0;
+        }
+
+        if (header->payload_size == 0u || (header->payload_size & (STAGE8C_KHEAP_MIN_ALIGNMENT - 1u)) != 0u) {
+            return 0;
+        }
+
+        payload_start = cursor + (uint32_t)sizeof(struct stage9a_kheap_allocation_header);
+
+        if (header->payload_size > (g_stage8c_kheap.current - payload_start)) {
+            return 0;
+        }
+
+        payload_end_exclusive = payload_start + header->payload_size;
+
+        if (target_ptr == payload_start) {
+            if (header->state != STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED) {
+                return 0;
+            }
+
+            header->state = STAGE9A_KHEAP_ALLOCATION_STATE_FREED;
+            return 1;
+        }
+
+        if (target_ptr > payload_start && target_ptr < payload_end_exclusive) {
+            return 0;
+        }
+
+        if (payload_end_exclusive <= cursor) {
+            return 0;
+        }
+
+        cursor = payload_end_exclusive;
+    }
+
+    return 0;
 }
 
 int stage8c_kheap_get_state(

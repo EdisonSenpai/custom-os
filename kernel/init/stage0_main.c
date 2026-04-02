@@ -50,6 +50,7 @@
 #define STAGE8B_TEST_PHYSICAL_FRAME 0x00300000u
 #define STAGE8D_TEST_ALLOC_COUNT 4u
 #define STAGE8D_FAIL_DETAIL 0x000800D0u
+#define STAGE9A_FAIL_DETAIL 0x000900A0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -165,6 +166,8 @@ static struct stage5c_frame_bookkeeping g_stage5c_frames;
 static struct stage6a_pmm_state g_stage6a_pmm;
 static uint64_t g_stage6c_pending_free_frames[STAGE6C_MAX_PENDING_FREE];
 static uint64_t g_stage6c_pending_free_count;
+static uint64_t g_stage5c_kernel_reserved_start;
+static uint64_t g_stage5c_kernel_reserved_end;
 
 __attribute__((noreturn)) static void panic(const char* reason, uint32_t detail);
 static int stage6d_pmm_try_allocate_reused_frame(uint64_t* out_phys_addr);
@@ -176,6 +179,10 @@ static void stage8a_run_vmm_layout_policy_self_check(void);
 static void stage8b_run_vmm_mapping_interface_self_check(void);
 static void stage8c_run_kheap_bootstrap_self_check(void);
 static void stage8d_run_kheap_validation_self_check(void);
+static void stage9a_run_kheap_free_groundwork_self_check(void);
+
+extern uint8_t __kernel_phys_start;
+extern uint8_t __kernel_phys_end;
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -472,6 +479,8 @@ static void stage5c_reset_bookkeeping(void)
     g_stage5c_frames.eligible_frames = 0u;
     g_stage5c_frames.highest_eligible_frame = 0u;
     g_stage5c_frames.highest_eligible_addr = 0u;
+    g_stage5c_kernel_reserved_start = 0u;
+    g_stage5c_kernel_reserved_end = 0u;
 }
 
 static void stage5c_record_range(uint64_t start_frame, uint64_t frame_count)
@@ -507,23 +516,72 @@ static void stage5c_emit_summary(void)
     serial_write_label_hex64("custom-os Stage 5C eligible frames: ", g_stage5c_frames.eligible_frames);
     serial_write_label_hex64("custom-os Stage 5C highest eligible frame: ", g_stage5c_frames.highest_eligible_frame);
     serial_write_label_hex64("custom-os Stage 5C highest eligible address: ", g_stage5c_frames.highest_eligible_addr);
+    serial_write_label_hex64("custom-os Stage 5C reserved kernel start: ", g_stage5c_kernel_reserved_start);
+    serial_write_label_hex64("custom-os Stage 5C reserved kernel end: ", g_stage5c_kernel_reserved_end);
+}
+
+static void stage5c_record_eligible_span(uint64_t start_addr, uint64_t end_addr)
+{
+    uint64_t frame_count = 0u;
+    uint64_t start_frame = 0u;
+    uint64_t highest_frame_addr = 0u;
+    uint64_t highest_frame = 0u;
+    uint32_t overflow = 0u;
+
+    if (end_addr <= start_addr) {
+        return;
+    }
+
+    start_addr = stage5c_align_up_4k(start_addr, &overflow);
+    if (overflow != 0u) {
+        return;
+    }
+
+    end_addr &= ~(STAGE5C_FRAME_SIZE - 1u);
+
+    if (end_addr <= start_addr) {
+        return;
+    }
+
+    frame_count = (end_addr - start_addr) >> STAGE5C_FRAME_SHIFT;
+    start_frame = start_addr >> STAGE5C_FRAME_SHIFT;
+    highest_frame_addr = end_addr - STAGE5C_FRAME_SIZE;
+    highest_frame = highest_frame_addr >> STAGE5C_FRAME_SHIFT;
+
+    stage5c_record_range(start_frame, frame_count);
+    g_stage5c_frames.eligible_frames = add_clamp_u64(g_stage5c_frames.eligible_frames, frame_count);
+
+    if (highest_frame > g_stage5c_frames.highest_eligible_frame) {
+        g_stage5c_frames.highest_eligible_frame = highest_frame;
+        g_stage5c_frames.highest_eligible_addr = highest_frame_addr;
+    }
 }
 
 static void stage5c_prepare_frame_bookkeeping(void)
 {
+    const uint64_t kernel_phys_start_raw = (uint64_t)(uintptr_t)&__kernel_phys_start;
+    const uint64_t kernel_phys_end_raw = (uint64_t)(uintptr_t)&__kernel_phys_end;
+    uint64_t kernel_reserved_start = 0u;
+    uint64_t kernel_reserved_end = 0u;
+    uint32_t kernel_align_overflow = 0u;
     uint32_t i = 0u;
 
     stage5c_reset_bookkeeping();
+
+    kernel_reserved_start = kernel_phys_start_raw & ~(STAGE5C_FRAME_SIZE - 1u);
+    kernel_reserved_end = stage5c_align_up_4k(kernel_phys_end_raw, &kernel_align_overflow);
+
+    if (kernel_align_overflow != 0u || kernel_reserved_end <= kernel_reserved_start) {
+        panic("invalid kernel reservation bounds", 0x000500C0u);
+    }
+
+    g_stage5c_kernel_reserved_start = kernel_reserved_start;
+    g_stage5c_kernel_reserved_end = kernel_reserved_end;
 
     while (i < g_stage5b_memory.region_count) {
         const struct stage5b_region* region = &g_stage5b_memory.regions[i];
         uint64_t start_addr = region->base_addr;
         uint64_t end_addr = region->end_addr;
-        uint64_t frame_count = 0u;
-        uint64_t start_frame = 0u;
-        uint64_t highest_frame_addr = 0u;
-        uint64_t highest_frame = 0u;
-        uint32_t overflow = 0u;
 
         if ((region->flags & STAGE5B_REGION_FLAG_POLICY_USABLE) == 0u) {
             i++;
@@ -544,30 +602,18 @@ static void stage5c_prepare_frame_bookkeeping(void)
             continue;
         }
 
-        start_addr = stage5c_align_up_4k(start_addr, &overflow);
-        if (overflow != 0u) {
+        if (end_addr <= kernel_reserved_start || start_addr >= kernel_reserved_end) {
+            stage5c_record_eligible_span(start_addr, end_addr);
             i++;
             continue;
         }
 
-        end_addr &= ~(STAGE5C_FRAME_SIZE - 1u);
-
-        if (end_addr <= start_addr) {
-            i++;
-            continue;
+        if (start_addr < kernel_reserved_start) {
+            stage5c_record_eligible_span(start_addr, kernel_reserved_start);
         }
 
-        frame_count = (end_addr - start_addr) >> STAGE5C_FRAME_SHIFT;
-        start_frame = start_addr >> STAGE5C_FRAME_SHIFT;
-        highest_frame_addr = end_addr - STAGE5C_FRAME_SIZE;
-        highest_frame = highest_frame_addr >> STAGE5C_FRAME_SHIFT;
-
-        stage5c_record_range(start_frame, frame_count);
-        g_stage5c_frames.eligible_frames = add_clamp_u64(g_stage5c_frames.eligible_frames, frame_count);
-
-        if (highest_frame > g_stage5c_frames.highest_eligible_frame) {
-            g_stage5c_frames.highest_eligible_frame = highest_frame;
-            g_stage5c_frames.highest_eligible_addr = highest_frame_addr;
+        if (end_addr > kernel_reserved_end) {
+            stage5c_record_eligible_span(kernel_reserved_end, end_addr);
         }
 
         i++;
@@ -1611,6 +1657,112 @@ static void stage8d_run_kheap_validation_self_check(void)
     }
 }
 
+static void stage9a_run_kheap_free_groundwork_self_check(void)
+{
+    uint32_t heap_start = 0u;
+    uint32_t heap_current_before = 0u;
+    uint32_t heap_end_exclusive = 0u;
+    uint32_t heap_mapped_end_before = 0u;
+    uint32_t heap_current_after_free = 0u;
+    uint32_t heap_mapped_end_after_free = 0u;
+    uint32_t alloc_a = 0u;
+    uint32_t alloc_b = 0u;
+    uint32_t alloc_c = 0u;
+    int valid_free_ok = 0;
+    int duplicate_free_reject_ok = 0;
+    int invalid_free_reject_ok = 0;
+    int null_free_reject_ok = 0;
+    int no_reuse_monotonic_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 9A heap free validation begin\n");
+
+    alloc_a = (uint32_t)(uintptr_t)stage8c_kheap_alloc(32u);
+    alloc_b = (uint32_t)(uintptr_t)stage8c_kheap_alloc(48u);
+
+    serial_write_label_hex("custom-os Stage 9A alloc A: ", alloc_a);
+    serial_write_label_hex("custom-os Stage 9A alloc B: ", alloc_b);
+
+    if (alloc_a == 0u || alloc_b == 0u || alloc_b <= alloc_a) {
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_before,
+            &heap_end_exclusive,
+            &heap_mapped_end_before)
+        == 0) {
+        passed = 0u;
+    }
+
+    valid_free_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_a) != 0);
+    if (valid_free_ok != 0) {
+        serial_write_text("custom-os Stage 9A free A accept: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A free A accept: FAIL\n");
+        passed = 0u;
+    }
+
+    duplicate_free_reject_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_a) == 0);
+    if (duplicate_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 9A duplicate free reject: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A duplicate free reject: FAIL\n");
+        passed = 0u;
+    }
+
+    invalid_free_reject_ok = (stage9a_kheap_free((void*)(uintptr_t)(heap_start + 4u)) == 0);
+    if (invalid_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 9A invalid free reject: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A invalid free reject: FAIL\n");
+        passed = 0u;
+    }
+
+    null_free_reject_ok = (stage9a_kheap_free((void*)0) == 0);
+    if (null_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 9A null free reject: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A null free reject: FAIL\n");
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_after_free,
+            &heap_end_exclusive,
+            &heap_mapped_end_after_free)
+        == 0) {
+        passed = 0u;
+    }
+
+    serial_write_label_hex("custom-os Stage 9A heap current before free: ", heap_current_before);
+    serial_write_label_hex("custom-os Stage 9A heap current after free: ", heap_current_after_free);
+
+    if (heap_current_after_free != heap_current_before || heap_mapped_end_after_free != heap_mapped_end_before) {
+        passed = 0u;
+    }
+
+    alloc_c = (uint32_t)(uintptr_t)stage8c_kheap_alloc(16u);
+    serial_write_label_hex("custom-os Stage 9A alloc C after free: ", alloc_c);
+
+    no_reuse_monotonic_ok = (alloc_c != 0u && alloc_c > alloc_b);
+    if (no_reuse_monotonic_ok != 0) {
+        serial_write_text("custom-os Stage 9A no-reuse monotonic alloc result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A no-reuse monotonic alloc result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 9A: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9A: FAIL\n");
+        panic("Stage 9A heap free groundwork failed", STAGE9A_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1912,7 +2064,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.8.0 (Stage 8): init start\n");
+    serial_write_text("custom-os v0.9.0 (Stage 9A): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -1937,6 +2089,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage8b_run_vmm_mapping_interface_self_check();
     stage8c_run_kheap_bootstrap_self_check();
     stage8d_run_kheap_validation_self_check();
+    stage9a_run_kheap_free_groundwork_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

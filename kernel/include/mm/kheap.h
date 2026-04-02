@@ -7,6 +7,7 @@
 
 int stage8c_kheap_bootstrap_init(void);
 void* stage8c_kheap_alloc(uint32_t size);
+int stage9a_kheap_free(void* ptr);
 int stage8c_kheap_get_state(
     uint32_t* out_start,
     uint32_t* out_current,

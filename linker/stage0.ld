@@ -5,6 +5,7 @@ ENTRY(stage0_start)
 SECTIONS
 {
     . = 1M;
+    __kernel_phys_start = .;
 
     .multiboot : ALIGN(8)
     {
@@ -31,4 +32,6 @@ SECTIONS
         *(COMMON)
         *(.bss*)
     }
+
+    __kernel_phys_end = .;
 }
