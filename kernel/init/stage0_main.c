@@ -48,6 +48,8 @@
 #define STAGE7D_PF_AWARE_ADDR 0x00400000u
 #define STAGE8B_TEST_VIRTUAL_PAGE STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START
 #define STAGE8B_TEST_PHYSICAL_FRAME 0x00300000u
+#define STAGE8D_TEST_ALLOC_COUNT 4u
+#define STAGE8D_FAIL_DETAIL 0x000800D0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -173,6 +175,7 @@ static void stage7d_run_identity_validation_self_check(void);
 static void stage8a_run_vmm_layout_policy_self_check(void);
 static void stage8b_run_vmm_mapping_interface_self_check(void);
 static void stage8c_run_kheap_bootstrap_self_check(void);
+static void stage8d_run_kheap_validation_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1468,6 +1471,146 @@ static void stage8c_run_kheap_bootstrap_self_check(void)
     }
 }
 
+static void stage8d_run_kheap_validation_self_check(void)
+{
+    static const uint32_t allocation_sizes[STAGE8D_TEST_ALLOC_COUNT] = {
+        0x00000080u,
+        0x00000180u,
+        0x00000300u,
+        0x00001000u
+    };
+
+    uint32_t heap_start_pre = 0u;
+    uint32_t heap_current_pre = 0u;
+    uint32_t heap_end_pre = 0u;
+    uint32_t heap_mapped_end_pre = 0u;
+    uint32_t heap_start_post = 0u;
+    uint32_t heap_current_post = 0u;
+    uint32_t heap_end_post = 0u;
+    uint32_t heap_mapped_end_post = 0u;
+    uint32_t allocation_addrs[STAGE8D_TEST_ALLOC_COUNT] = {0u, 0u, 0u, 0u};
+    uint32_t i = 0u;
+    uint32_t passed = 1u;
+    int allocations_non_null = 1;
+    int alignment_ordering_ok = 1;
+    int mapped_growth_ok = 1;
+    int bounds_ok = 1;
+
+    serial_write_text("custom-os Stage 8D allocation validation begin\n");
+
+    if (stage8c_kheap_get_state(
+            &heap_start_pre,
+            &heap_current_pre,
+            &heap_end_pre,
+            &heap_mapped_end_pre)
+        == 0) {
+        passed = 0u;
+        allocations_non_null = 0;
+        alignment_ordering_ok = 0;
+        mapped_growth_ok = 0;
+        bounds_ok = 0;
+    }
+
+    serial_write_label_hex("custom-os Stage 8D heap state before test start: ", heap_start_pre);
+    serial_write_label_hex("custom-os Stage 8D heap state before test current: ", heap_current_pre);
+    serial_write_label_hex("custom-os Stage 8D heap state before test end exclusive: ", heap_end_pre);
+    serial_write_label_hex("custom-os Stage 8D heap state before test mapped end: ", heap_mapped_end_pre);
+
+    while (i < STAGE8D_TEST_ALLOC_COUNT) {
+        allocation_addrs[i] = (uint32_t)(uintptr_t)stage8c_kheap_alloc(allocation_sizes[i]);
+
+        serial_write_label_hex("custom-os Stage 8D allocation index: ", i);
+        serial_write_label_hex("custom-os Stage 8D allocation size: ", allocation_sizes[i]);
+        serial_write_label_hex("custom-os Stage 8D allocation result: ", allocation_addrs[i]);
+
+        if (allocation_addrs[i] == 0u) {
+            allocations_non_null = 0;
+        }
+
+        if ((allocation_addrs[i] & 0x7u) != 0u) {
+            alignment_ordering_ok = 0;
+        }
+
+        if (i > 0u && allocation_addrs[i] <= allocation_addrs[i - 1u]) {
+            alignment_ordering_ok = 0;
+        }
+
+        i++;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start_post,
+            &heap_current_post,
+            &heap_end_post,
+            &heap_mapped_end_post)
+        == 0) {
+        passed = 0u;
+        mapped_growth_ok = 0;
+        bounds_ok = 0;
+    }
+
+    serial_write_label_hex("custom-os Stage 8D heap state after test current: ", heap_current_post);
+    serial_write_label_hex("custom-os Stage 8D heap state after test mapped end: ", heap_mapped_end_post);
+
+    mapped_growth_ok =
+        (mapped_growth_ok != 0)
+        && (heap_mapped_end_post > heap_mapped_end_pre)
+        && (heap_mapped_end_post >= (heap_start_post + (2u * STAGE7A_PAGING_PAGE_SIZE)));
+
+    while (bounds_ok != 0 && i > 0u) {
+        i--;
+
+        if (allocation_addrs[i] < STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START
+            || allocation_addrs[i] >= STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE) {
+            bounds_ok = 0;
+        }
+    }
+
+    bounds_ok =
+        (bounds_ok != 0)
+        && (heap_start_post == STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START)
+        && (heap_end_post == STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE)
+        && (heap_current_post >= heap_start_post)
+        && (heap_current_post <= heap_mapped_end_post)
+        && (heap_mapped_end_post <= heap_end_post)
+        && ((heap_mapped_end_post & STAGE8A_VMM_LAYOUT_PAGE_MASK_4K) == 0u);
+
+    if (allocations_non_null != 0) {
+        serial_write_text("custom-os Stage 8D multiple allocation results: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8D multiple allocation results: FAIL\n");
+        passed = 0u;
+    }
+
+    if (alignment_ordering_ok != 0) {
+        serial_write_text("custom-os Stage 8D ordering and alignment result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8D ordering and alignment result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (mapped_growth_ok != 0) {
+        serial_write_text("custom-os Stage 8D page-growth / mapped-end advancement result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8D page-growth / mapped-end advancement result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (bounds_ok != 0) {
+        serial_write_text("custom-os Stage 8D heap-window bounds result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8D heap-window bounds result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 8D: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8D: FAIL\n");
+        panic("Stage 8D heap validation failed", STAGE8D_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1769,7 +1912,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.7.0 (Stage 7): init start\n");
+    serial_write_text("custom-os v0.8.0 (Stage 8): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -1793,6 +1936,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage8a_run_vmm_layout_policy_self_check();
     stage8b_run_vmm_mapping_interface_self_check();
     stage8c_run_kheap_bootstrap_self_check();
+    stage8d_run_kheap_validation_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

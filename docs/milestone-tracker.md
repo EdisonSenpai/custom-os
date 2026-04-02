@@ -36,14 +36,15 @@ Purpose: one-page status view for solo progress.
 | Stage 8A - VMM layout policy baseline | complete | 2026-04-02 | Add explicit virtual layout policy constants for active identity first-4 MiB plus future heap/mapping reserved windows, policy-only classification helpers, and deterministic Stage 8A self-check markers | Source integration evidence: new `vmm_layout` policy module wired into kernel build, Stage 8A self-check called immediately after Stage 7D with deterministic PASS/FAIL marker set |
 | Stage 8B - Minimal VMM mapping interface | complete | 2026-04-02 | Add minimal single-page VMM query/resolve/map/unmap APIs and deterministic self-check in Stage 8A future mapping reserved window | QEMU validation: Stage 8B markers emitted for mapping interface begin, initial unmapped state PASS, successful map result PASS, resolved physical frame equals expected frame, successful unmap result PASS, final unmapped state PASS, and Stage 8B PASS with Stage 7/8A output preserved |
 | Stage 8C - Heap bootstrap allocator groundwork | complete | 2026-04-02 | Add minimal heap bootstrap API over Stage 8A heap reserved window using Stage 6B PMM frames + Stage 8B page mapping with deterministic Stage 8C self-check markers | QEMU validation: Stage 8C markers emitted for heap bootstrap begin, first allocation = 0x00400000, second allocation = 0x00400018, heap current post alloc = 0x00400040, mapped end post alloc = 0x00401000, alignment/ordering check PASS, Stage 8C PASS, and Stage 7/8A/8B output preserved with Stage 6 timer/keyboard runtime unchanged |
-| Stage 8 - VMM policy suite (8A-8D) | in-progress | TBD | Stage 8 is split into 8A/8B/8C/8D; 8A and 8B are complete, 8C is in implementation progress, 8D is not started | Stage 8A and Stage 8B evidence present; Stage 8C implementation integrated with validation pending; Stage 8D has no implementation changes yet |
+| Stage 8D - Heap validation and controlled allocation tests | complete | 2026-04-02 | Add dedicated Stage 8D self-check that validates multiple deterministic allocations, monotonic aligned results, mapped-end page growth, and heap-window bounds under the active paging baseline | QEMU validation: Stage 8D markers emitted for allocation validation begin, heap state before test, multiple allocation results, mapped-end advancement PASS, ordering/alignment PASS, heap-window bounds PASS, final Stage 8D PASS, and Stage 6 timer/keyboard runtime unchanged |
+| Stage 8 - VMM policy suite (8A-8D) | complete | 2026-04-02 | Stage 8 is split into 8A/8B/8C/8D and all sub-stages are validated with deterministic PASS markers under active paging | Stage 8A through Stage 8D evidence set |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
-- Stage 8 is in-progress: Stage 8A and Stage 8B are complete, Stage 8C implementation is in progress, and Stage 8D is not started.
-- Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A policy-only layout classification.
-- Current focus: Stage 8C post-fix runtime re-validation (heap window mapping gate corrected in Stage 8B VMM policy logic).
+- Stage 8A through Stage 8D are complete and verified in QEMU.
+- Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
+- Current focus: Stage 9 planning only (not started).
 
 ## Weekly update template
 
@@ -68,6 +69,8 @@ Purpose: one-page status view for solo progress.
   - Stage 8A VMM layout policy baseline completed (explicit active identity and future reserved windows, policy-only address/region classification helpers, deterministic Stage 8A self-check markers)
   - Stage 8B minimal VMM mapping interface completed (single-page query/resolve/map/unmap APIs in reserved mapping window plus deterministic Stage 8B self-check markers)
   - Stage 8C minimal heap bootstrap implementation integrated (Stage 8A heap reserved window + Stage 6B PMM frame allocation + Stage 8B single-page mapping + deterministic Stage 8C self-check markers)
+  - Stage 8D heap validation and controlled allocation tests completed (multiple deterministic allocations, page-growth/mapped-end advancement, ordering/alignment checks, heap-window bounds checks, Stage 8D PASS)
+  - Stage 8 aggregate completion achieved (8A through 8D)
 
 - Blockers:
   - None
@@ -75,8 +78,8 @@ Purpose: one-page status view for solo progress.
 - Next focus:
   - Keep Stage 7 baseline stable under routine boot/runtime checks
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
-  - Validate Stage 8C deterministic markers in QEMU while preserving Stage 7 and Stage 8A/8B outputs
-  - Keep Stage 8D not started until Stage 8C validation is complete
+  - Keep Stage 8 baseline stable under routine boot/runtime checks
+  - Plan Stage 9 scope only after Stage 8 regressions remain clear
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -89,3 +92,4 @@ Purpose: one-page status view for solo progress.
   - Stage 8A introduces policy-only virtual layout declarations/classification and deterministic self-check output, with no new mappings, no heap activation, and no paging activation flow changes
   - Stage 8B introduces minimal single-page mapping/query helpers only in the Stage 8A future mapping reserved window, preserving Stage 7 identity mapping behavior and Stage 6 runtime
   - Stage 8C introduces a minimal bump-only heap bootstrap path that maps heap pages on demand from Stage 6B PMM via Stage 8B map-page; no free API, no kmalloc subsystem, and no paging activation changes
+  - Stage 8D adds validation-only controlled allocation checks over the existing Stage 8C bump allocator; no free logic, no allocator redesign, and no Stage 9 behavior changes

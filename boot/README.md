@@ -1,6 +1,6 @@
 # Boot Notes
 
-Current status: Stage 7 uses the same minimal GRUB plus Multiboot2 boot path.
+Current status: Stage 8 uses the same minimal GRUB plus Multiboot2 boot path.
 
 Current responsibilities:
 

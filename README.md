@@ -1,10 +1,10 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 7 complete (7A + 7B + 7C + 7D) and verified in QEMU
+> Current status: Stage 8 complete (8A + 8B + 8C + 8D) and verified in QEMU
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 7 complete with active paging enabled on top of the validated Stage 6 PMM lifecycle baseline.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 8 complete with active paging plus validated VMM policy/mapping and heap-bootstrap checks on top of the Stage 6 PMM lifecycle baseline.
 
-## Architecture snapshot (Stage 7)
+## Architecture snapshot (Stage 8)
 
 - 32-bit protected mode (Multiboot2 entry)
 - Paging enabled (CR3 loaded and CR0.PG set)
@@ -18,9 +18,13 @@ CustomOS is a from-scratch operating system project focused on low-level correct
 - Multiboot2 memory map parsing and early frame bookkeeping
 - Minimal PMM API: deterministic frame allocation, minimal free API, deterministic pending-free tracking, and FIFO reuse activation
 - PMM lifecycle baseline (Stage 6A through Stage 6D) remains active
+- Stage 8A virtual layout policy baseline remains active
+- Stage 8B minimal single-page VMM map/unmap/query interface remains active
+- Stage 8C minimal bump-style heap bootstrap remains active
+- Stage 8D validation checks confirm controlled allocation behavior without allocator redesign
 - Stage 6 timer and keyboard runtime behavior remains active under paging
 
-## Current baseline (Stage 7)
+## Current baseline (Stage 8)
 
 Implemented and verified:
 
@@ -50,8 +54,12 @@ Implemented and verified:
 - Stage 7B: static aligned paging structures and deterministic first-4 MiB identity-map setup.
 - Stage 7C: explicit CR3 load and CR0.PG paging activation path.
 - Stage 7D: active paging validation with deterministic CR3/CR0 markers, identity probes, and non-destructive page-fault-awareness confirmation.
+- Stage 8A: explicit virtual memory layout policy constants and address classification helpers.
+- Stage 8B: minimal single-page VMM query/resolve/map/unmap interface.
+- Stage 8C: minimal PMM-backed, VMM-mapped bump-style kernel heap bootstrap.
+- Stage 8D: controlled allocation validation for alignment/order, mapped-end growth, and heap-window bounds.
 
-## Stage 7 highlights
+## Stage 8 highlights
 
 - Stage 4 interrupt runtime behavior remains active after Stage 6 PMM lifecycle bring-up.
 - Stage 5A and 5B provide safe parsing and accounting summaries from Multiboot2 data.
@@ -61,6 +69,7 @@ Implemented and verified:
 - Stage 6D activates deterministic FIFO reuse while preserving baseline boot/runtime behavior.
 - Stage 7C enables paging with explicit CR3/CR0 control-register operations.
 - Stage 7D validates active paging state and first-4 MiB identity behavior while preserving Stage 6 timer/keyboard runtime.
+- Stage 8D finalizes Stage 8 with deterministic heap growth and bounds validation under active paging.
 
 ## Scope boundaries
 
@@ -71,12 +80,13 @@ Implemented now:
 - Stage 4 IRQ runtime behavior (timer plus keyboard) and Stage 2 exception diagnostics.
 - Minimal PMM lifecycle through Stage 6A to Stage 6D.
 - Static identity-mapped paging baseline through Stage 7A to Stage 7D.
+- Minimal VMM policy/mapping and controlled heap-bootstrap validation through Stage 8A to Stage 8D.
 
 Deliberately not implemented yet:
 
 - Advanced frame lifecycle features beyond current deterministic minimal PMM model.
 - Advanced virtual memory work beyond the current static first-4 MiB identity-mapped paging baseline.
-- Heap/kmalloc.
+- Full heap allocator lifecycle (free paths, fragmentation strategy, kmalloc/kfree API surface).
 - Scheduler and task switching.
 - Filesystem and user-mode runtime.
 - Full x86_64 long-mode runtime.
@@ -87,7 +97,7 @@ Deliberately not implemented yet:
 - boot/grub/: GRUB configuration for bootable image generation.
 - arch/x86_64/: architecture-specific entry and interrupt/exception assembly stubs.
 - linker/: linker script and memory layout contract.
-- kernel/init/: early kernel init and Stage 6 diagnostics.
+- kernel/init/: staged early init and self-check flow through Stage 8 diagnostics.
 - build/: shared Make configuration and build targets.
 - scripts/: QEMU run wrappers for shell and PowerShell workflows.
 
@@ -110,13 +120,14 @@ make iso
 
 ## Expected output
 
-### Normal Stage 7 run
+### Normal Stage 8 run
 
 VGA and COM1 serial should show:
 
-- custom-os v0.7.0 (Stage 7): init start
+- custom-os v0.8.0 (Stage 8): init start
 - custom-os Stage 5A/B/C/D summary markers
 - custom-os Stage 7A/7B/7C/7D markers
+- custom-os Stage 8A/8B/8C/8D markers
 - custom-os Stage 6: Multiboot2 handoff OK
 - custom-os Stage 6: IDT installed
 - custom-os Stage 6: PIC remapped + PIT started
@@ -182,9 +193,9 @@ Expected panic output (VGA and serial):
 
 ## Future direction
 
-- Keep the Stage 7 baseline stable under routine validation.
+- Keep the Stage 8 baseline stable under routine validation.
 - Preserve Stage 6 runtime behavior while paging is active.
-- Define next milestone scope only after Stage 7 regressions remain clear.
+- Plan Stage 9 scope only after Stage 8 regressions remain clear.
 
 ## Key docs
 
@@ -209,3 +220,7 @@ Expected panic output (VGA and serial):
 - docs/milestones/stage-7b.md
 - docs/milestones/stage-7c.md
 - docs/milestones/stage-7d.md
+- docs/milestones/stage-8a.md
+- docs/milestones/stage-8b.md
+- docs/milestones/stage-8c.md
+- docs/milestones/stage-8d.md

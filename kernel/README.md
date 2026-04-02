@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 7 early kernel baseline is active with paging enabled.
+Current status: Stage 8 early kernel baseline is active with paging enabled.
 
 Current implementation location:
 
@@ -25,6 +25,10 @@ Current capabilities:
 - Stage 7B static first-4 MiB identity mapping setup.
 - Stage 7C explicit CR3 load and CR0.PG activation path.
 - Stage 7D active paging validation with identity probes and non-destructive fault-awareness checks.
+- Stage 8A virtual memory layout policy baseline.
+- Stage 8B minimal single-page VMM query/resolve/map/unmap interface.
+- Stage 8C minimal bump-style kernel heap bootstrap backed by PMM and VMM mapping.
+- Stage 8D controlled heap-allocation validation (alignment/order, mapped-end growth, heap-window bounds).
 
 Not implemented yet:
 
@@ -32,4 +36,5 @@ Not implemented yet:
 - Full memory management subsystem lifecycle.
 - Filesystem and user-mode runtime.
 - Full keyboard input processing pipeline.
-- Advanced virtual memory features beyond the current static identity-mapped paging baseline, and heap/kmalloc.
+- Advanced virtual memory features beyond the current Stage 8 policy/mapping/heap-bootstrap baseline.
+- Full heap allocator lifecycle beyond the current bump allocator validation (free paths, allocator strategy, kmalloc/kfree surface).
