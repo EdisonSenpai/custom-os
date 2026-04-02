@@ -87,6 +87,11 @@ const page_table_t* stage7b_get_early_identity_page_table(void)
     return &g_stage7b_early_identity_page_table;
 }
 
+page_directory_t* stage7b_get_early_page_directory_mutable(void)
+{
+    return &g_stage7b_early_page_directory;
+}
+
 void stage7c_load_cr3_with_early_page_directory(void)
 {
     const uint32_t page_directory_frame =

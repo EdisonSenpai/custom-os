@@ -55,6 +55,7 @@ uint32_t stage7a_paging_make_entry(uint32_t frame_addr, uint32_t flags);
 void stage7b_setup_early_identity_paging(void);
 const page_directory_t* stage7b_get_early_page_directory(void);
 const page_table_t* stage7b_get_early_identity_page_table(void);
+page_directory_t* stage7b_get_early_page_directory_mutable(void);
 
 void stage7c_load_cr3_with_early_page_directory(void);
 void stage7c_set_cr0_paging_enable(void);

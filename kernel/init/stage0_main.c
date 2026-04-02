@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "mm/paging.h"
+#include "mm/vmm.h"
 #include "mm/vmm_layout.h"
 
 #define VGA_TEXT_BUFFER ((volatile uint16_t*)0xB8000)
@@ -44,6 +45,8 @@
 #define STAGE7D_PROBE_ADDR_LOW_PAGE 0x00001000u
 #define STAGE7D_PROBE_ADDR_VGA_TEXT 0x000B8000u
 #define STAGE7D_PF_AWARE_ADDR 0x00400000u
+#define STAGE8B_TEST_VIRTUAL_PAGE STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START
+#define STAGE8B_TEST_PHYSICAL_FRAME 0x00300000u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -167,6 +170,7 @@ static void stage7b_run_static_paging_setup_self_check(void);
 static void stage7c_run_paging_activation_self_check(void);
 static void stage7d_run_identity_validation_self_check(void);
 static void stage8a_run_vmm_layout_policy_self_check(void);
+static void stage8b_run_vmm_mapping_interface_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1312,6 +1316,69 @@ static void stage8a_run_vmm_layout_policy_self_check(void)
     }
 }
 
+static void stage8b_run_vmm_mapping_interface_self_check(void)
+{
+    const uint32_t test_virtual_page = STAGE8B_TEST_VIRTUAL_PAGE;
+    const uint32_t expected_physical_frame = stage7a_paging_frame_addr(STAGE8B_TEST_PHYSICAL_FRAME);
+    uint32_t resolved_physical_frame = 0u;
+    uint32_t passed = 1u;
+    int initial_unmapped = 0;
+    int map_result = 0;
+    int resolve_result = 0;
+    int unmap_result = 0;
+    int final_unmapped = 0;
+
+    serial_write_text("custom-os Stage 8B mapping interface begin\n");
+    serial_write_label_hex("custom-os Stage 8B test virtual page: ", test_virtual_page);
+    serial_write_label_hex("custom-os Stage 8B expected physical frame: ", expected_physical_frame);
+
+    initial_unmapped = (stage8b_vmm_is_page_mapped(test_virtual_page) == 0);
+    if (initial_unmapped != 0) {
+        serial_write_text("custom-os Stage 8B initial unmapped state: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8B initial unmapped state: FAIL\n");
+        passed = 0u;
+    }
+
+    map_result = (stage8b_vmm_map_page(test_virtual_page, expected_physical_frame) != 0);
+    if (map_result != 0) {
+        serial_write_text("custom-os Stage 8B successful map result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8B successful map result: FAIL\n");
+        passed = 0u;
+    }
+
+    resolve_result = (stage8b_vmm_resolve_page_frame(test_virtual_page, &resolved_physical_frame) != 0)
+        && (resolved_physical_frame == expected_physical_frame);
+    serial_write_label_hex("custom-os Stage 8B resolved physical frame: ", resolved_physical_frame);
+    if (resolve_result == 0) {
+        passed = 0u;
+    }
+
+    unmap_result = (stage8b_vmm_unmap_page(test_virtual_page) != 0);
+    if (unmap_result != 0) {
+        serial_write_text("custom-os Stage 8B successful unmap result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8B successful unmap result: FAIL\n");
+        passed = 0u;
+    }
+
+    final_unmapped = (stage8b_vmm_is_page_mapped(test_virtual_page) == 0);
+    if (final_unmapped != 0) {
+        serial_write_text("custom-os Stage 8B final unmapped state: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8B final unmapped state: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 8B: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8B: FAIL\n");
+        panic("Stage 8B mapping interface failed", 0x000800B0u);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1635,6 +1702,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage7c_run_paging_activation_self_check();
     stage7d_run_identity_validation_self_check();
     stage8a_run_vmm_layout_policy_self_check();
+    stage8b_run_vmm_mapping_interface_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
