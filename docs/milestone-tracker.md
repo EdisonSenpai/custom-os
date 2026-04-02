@@ -35,14 +35,15 @@ Purpose: one-page status view for solo progress.
 | Stage 7 - Paging bring-up suite (7A-7D) | complete | 2026-04-02 | Complete paging model, setup, activation, and validation with no regressions | Stage 7A through Stage 7D evidence set |
 | Stage 8A - VMM layout policy baseline | complete | 2026-04-02 | Add explicit virtual layout policy constants for active identity first-4 MiB plus future heap/mapping reserved windows, policy-only classification helpers, and deterministic Stage 8A self-check markers | Source integration evidence: new `vmm_layout` policy module wired into kernel build, Stage 8A self-check called immediately after Stage 7D with deterministic PASS/FAIL marker set |
 | Stage 8B - Minimal VMM mapping interface | complete | 2026-04-02 | Add minimal single-page VMM query/resolve/map/unmap APIs and deterministic self-check in Stage 8A future mapping reserved window | QEMU validation: Stage 8B markers emitted for mapping interface begin, initial unmapped state PASS, successful map result PASS, resolved physical frame equals expected frame, successful unmap result PASS, final unmapped state PASS, and Stage 8B PASS with Stage 7/8A output preserved |
-| Stage 8 - VMM policy suite (8A-8D) | in-progress | TBD | Stage 8 is split into 8A/8B/8C/8D; 8A and 8B are complete, 8C and 8D are not started | Stage 8A and Stage 8B evidence present; Stage 8C and Stage 8D have no implementation changes yet |
+| Stage 8C - Heap bootstrap allocator groundwork | complete | 2026-04-02 | Add minimal heap bootstrap API over Stage 8A heap reserved window using Stage 6B PMM frames + Stage 8B page mapping with deterministic Stage 8C self-check markers | QEMU validation: Stage 8C markers emitted for heap bootstrap begin, first allocation = 0x00400000, second allocation = 0x00400018, heap current post alloc = 0x00400040, mapped end post alloc = 0x00401000, alignment/ordering check PASS, Stage 8C PASS, and Stage 7/8A/8B output preserved with Stage 6 timer/keyboard runtime unchanged |
+| Stage 8 - VMM policy suite (8A-8D) | in-progress | TBD | Stage 8 is split into 8A/8B/8C/8D; 8A and 8B are complete, 8C is in implementation progress, 8D is not started | Stage 8A and Stage 8B evidence present; Stage 8C implementation integrated with validation pending; Stage 8D has no implementation changes yet |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
-- Stage 8 is in-progress: Stage 8A and Stage 8B are complete, and Stage 8C and Stage 8D are not started.
+- Stage 8 is in-progress: Stage 8A and Stage 8B are complete, Stage 8C implementation is in progress, and Stage 8D is not started.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A policy-only layout classification.
-- Current focus: Stage 8C not started.
+- Current focus: Stage 8C post-fix runtime re-validation (heap window mapping gate corrected in Stage 8B VMM policy logic).
 
 ## Weekly update template
 
@@ -66,6 +67,7 @@ Purpose: one-page status view for solo progress.
   - Stage 7 aggregate completion achieved (7A through 7D)
   - Stage 8A VMM layout policy baseline completed (explicit active identity and future reserved windows, policy-only address/region classification helpers, deterministic Stage 8A self-check markers)
   - Stage 8B minimal VMM mapping interface completed (single-page query/resolve/map/unmap APIs in reserved mapping window plus deterministic Stage 8B self-check markers)
+  - Stage 8C minimal heap bootstrap implementation integrated (Stage 8A heap reserved window + Stage 6B PMM frame allocation + Stage 8B single-page mapping + deterministic Stage 8C self-check markers)
 
 - Blockers:
   - None
@@ -73,7 +75,8 @@ Purpose: one-page status view for solo progress.
 - Next focus:
   - Keep Stage 7 baseline stable under routine boot/runtime checks
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
-  - Stage 8A and Stage 8B complete; Stage 8C not started
+  - Validate Stage 8C deterministic markers in QEMU while preserving Stage 7 and Stage 8A/8B outputs
+  - Keep Stage 8D not started until Stage 8C validation is complete
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -85,3 +88,4 @@ Purpose: one-page status view for solo progress.
   - Stage 7C and Stage 7D now run in early init; preserve first-4 MiB identity assumptions unless milestone scope explicitly changes
   - Stage 8A introduces policy-only virtual layout declarations/classification and deterministic self-check output, with no new mappings, no heap activation, and no paging activation flow changes
   - Stage 8B introduces minimal single-page mapping/query helpers only in the Stage 8A future mapping reserved window, preserving Stage 7 identity mapping behavior and Stage 6 runtime
+  - Stage 8C introduces a minimal bump-only heap bootstrap path that maps heap pages on demand from Stage 6B PMM via Stage 8B map-page; no free API, no kmalloc subsystem, and no paging activation changes

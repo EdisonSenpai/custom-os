@@ -19,10 +19,11 @@
 - stage-7d.md: complete, active paging validation with deterministic CR3/CR0 markers, first-4 MiB identity probes, and non-destructive page-fault-awareness confirmation.
 - stage-8a.md: complete, Stage 8A policy-only virtual layout constants, classification helpers, and deterministic Stage 8A self-check markers.
 - stage-8b.md: complete, minimal single-page VMM query/resolve/map/unmap interface in the Stage 8A future mapping reserved window with deterministic Stage 8B self-check markers.
+- stage-8c.md: in-progress, minimal heap bootstrap layer over Stage 8A reserved heap range with Stage 6B PMM-backed and Stage 8B-mapped one-page growth plus deterministic Stage 8C self-check markers; Stage 8B mutable mapping gate fix integrated for heap-window mappings, pending re-validation.
 
-Current focus: Stage 8 split is active. Stage 8A and Stage 8B are complete. Stage 8C is not started.
+Current focus: Stage 8 split is active. Stage 8A, Stage 8B, and Stage 8C are complete. Stage 8D is not started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
 Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, so full Stage 7 is complete.
-Stage 8 is split into 8A, 8B, 8C, and 8D. Stage 8A and Stage 8B are complete; Stage 8C and Stage 8D are not started.
+Stage 8 is split into 8A, 8B, 8C, and 8D. Stage 8A and Stage 8B are complete; Stage 8C is in progress; Stage 8D is not started.

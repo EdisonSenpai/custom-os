@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "mm/kheap.h"
 #include "mm/paging.h"
 #include "mm/vmm.h"
 #include "mm/vmm_layout.h"
@@ -171,6 +172,7 @@ static void stage7c_run_paging_activation_self_check(void);
 static void stage7d_run_identity_validation_self_check(void);
 static void stage8a_run_vmm_layout_policy_self_check(void);
 static void stage8b_run_vmm_mapping_interface_self_check(void);
+static void stage8c_run_kheap_bootstrap_self_check(void);
 
 extern void isr_stub_divide_error(void);
 extern void isr_stub_breakpoint(void);
@@ -1379,6 +1381,93 @@ static void stage8b_run_vmm_mapping_interface_self_check(void)
     }
 }
 
+static void stage8c_run_kheap_bootstrap_self_check(void)
+{
+    uint32_t heap_start = 0u;
+    uint32_t heap_current = 0u;
+    uint32_t heap_end_exclusive = 0u;
+    uint32_t heap_mapped_end_exclusive = 0u;
+    void* first_allocation = (void*)0;
+    void* second_allocation = (void*)0;
+    uint32_t first_allocation_addr = 0u;
+    uint32_t second_allocation_addr = 0u;
+    int alignment_ordering_check = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 8C heap bootstrap begin\n");
+
+    if (stage8c_kheap_bootstrap_init() == 0) {
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    serial_write_label_hex("custom-os Stage 8C heap start: ", heap_start);
+    serial_write_label_hex("custom-os Stage 8C heap current: ", heap_current);
+    serial_write_label_hex("custom-os Stage 8C heap end exclusive: ", heap_end_exclusive);
+    serial_write_label_hex("custom-os Stage 8C heap mapped end exclusive: ", heap_mapped_end_exclusive);
+
+    first_allocation = stage8c_kheap_alloc(24u);
+    second_allocation = stage8c_kheap_alloc(40u);
+    first_allocation_addr = (uint32_t)(uintptr_t)first_allocation;
+    second_allocation_addr = (uint32_t)(uintptr_t)second_allocation;
+
+    serial_write_label_hex("custom-os Stage 8C first allocation result: ", first_allocation_addr);
+    serial_write_label_hex("custom-os Stage 8C second allocation result: ", second_allocation_addr);
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    serial_write_label_hex("custom-os Stage 8C heap current post alloc: ", heap_current);
+    serial_write_label_hex("custom-os Stage 8C heap mapped end post alloc: ", heap_mapped_end_exclusive);
+
+    alignment_ordering_check =
+        (first_allocation != (void*)0)
+        && (second_allocation != (void*)0)
+        && (first_allocation_addr != second_allocation_addr)
+        && ((first_allocation_addr & 0x7u) == 0u)
+        && ((second_allocation_addr & 0x7u) == 0u)
+        && (first_allocation_addr < second_allocation_addr)
+        && (first_allocation_addr >= STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START)
+        && (first_allocation_addr < STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE)
+        && (second_allocation_addr >= STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START)
+        && (second_allocation_addr < STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE)
+        && (heap_start == STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START)
+        && (heap_end_exclusive == STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_END_EXCLUSIVE)
+        && (heap_mapped_end_exclusive >= heap_start)
+        && (heap_mapped_end_exclusive <= heap_end_exclusive)
+        && ((heap_mapped_end_exclusive & STAGE8A_VMM_LAYOUT_PAGE_MASK_4K) == 0u)
+        && (heap_current >= heap_start)
+        && (heap_current <= heap_mapped_end_exclusive);
+
+    if (alignment_ordering_check != 0) {
+        serial_write_text("custom-os Stage 8C alignment/ordering check: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8C alignment/ordering check: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 8C: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 8C: FAIL\n");
+        panic("Stage 8C heap bootstrap failed", 0x000800C0u);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -1703,6 +1792,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage7d_run_identity_validation_self_check();
     stage8a_run_vmm_layout_policy_self_check();
     stage8b_run_vmm_mapping_interface_self_check();
+    stage8c_run_kheap_bootstrap_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

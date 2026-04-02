@@ -4,16 +4,18 @@
 #include "mm/vmm_layout.h"
 
 #define STAGE8B_VMM_SINGLE_TABLE_SPAN (STAGE7A_PAGING_ENTRIES_PER_TABLE * STAGE7A_PAGING_PAGE_SIZE)
-#define STAGE8B_VMM_FUTURE_MAPPING_RESERVED_SPAN \
-    (STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_END_EXCLUSIVE - STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START)
-#define STAGE8B_VMM_FUTURE_MAPPING_TABLE_COUNT (STAGE8B_VMM_FUTURE_MAPPING_RESERVED_SPAN / STAGE8B_VMM_SINGLE_TABLE_SPAN)
+#define STAGE8B_VMM_MUTABLE_RESERVED_START STAGE8A_VMM_LAYOUT_FUTURE_HEAP_RESERVED_START
+#define STAGE8B_VMM_MUTABLE_RESERVED_END_EXCLUSIVE STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_END_EXCLUSIVE
+#define STAGE8B_VMM_MUTABLE_RESERVED_SPAN \
+    (STAGE8B_VMM_MUTABLE_RESERVED_END_EXCLUSIVE - STAGE8B_VMM_MUTABLE_RESERVED_START)
+#define STAGE8B_VMM_MUTABLE_TABLE_COUNT (STAGE8B_VMM_MUTABLE_RESERVED_SPAN / STAGE8B_VMM_SINGLE_TABLE_SPAN)
 
-_Static_assert((STAGE8B_VMM_FUTURE_MAPPING_RESERVED_SPAN % STAGE8B_VMM_SINGLE_TABLE_SPAN) == 0u,
-    "Stage 8B reserved mapping span must be an exact multiple of one page-table span");
-_Static_assert(STAGE8B_VMM_FUTURE_MAPPING_TABLE_COUNT == 2u,
-    "Stage 8B expects two page tables for the 8 MiB future mapping reserved window");
+_Static_assert((STAGE8B_VMM_MUTABLE_RESERVED_SPAN % STAGE8B_VMM_SINGLE_TABLE_SPAN) == 0u,
+    "Stage 8B mutable reserved span must be an exact multiple of one page-table span");
+_Static_assert(STAGE8B_VMM_MUTABLE_TABLE_COUNT == 3u,
+    "Stage 8B/8C expects three page tables for 0x00400000-0x01000000 mutable windows");
 
-static page_table_t g_stage8b_future_mapping_page_tables[STAGE8B_VMM_FUTURE_MAPPING_TABLE_COUNT];
+static page_table_t g_stage8b_mutable_reserved_page_tables[STAGE8B_VMM_MUTABLE_TABLE_COUNT];
 
 static int stage8b_vmm_is_page_aligned(uint32_t addr)
 {
@@ -63,11 +65,12 @@ static int stage8b_vmm_get_reserved_mapping_slot(
     uint32_t* out_table_slot)
 {
     const uint32_t reserved_start_pd_index =
-        stage7a_paging_pd_index(STAGE8A_VMM_LAYOUT_FUTURE_MAPPING_RESERVED_START);
+        stage7a_paging_pd_index(STAGE8B_VMM_MUTABLE_RESERVED_START);
     const uint32_t pd_index = stage7a_paging_pd_index(virtual_page_addr);
     uint32_t table_slot = 0u;
 
-    if (stage8a_vmm_layout_is_addr_in_future_mapping_reserved(virtual_page_addr) == 0) {
+    if (stage8a_vmm_layout_is_addr_in_future_heap_reserved(virtual_page_addr) == 0
+        && stage8a_vmm_layout_is_addr_in_future_mapping_reserved(virtual_page_addr) == 0) {
         return 0;
     }
 
@@ -76,7 +79,7 @@ static int stage8b_vmm_get_reserved_mapping_slot(
     }
 
     table_slot = pd_index - reserved_start_pd_index;
-    if (table_slot >= STAGE8B_VMM_FUTURE_MAPPING_TABLE_COUNT) {
+    if (table_slot >= STAGE8B_VMM_MUTABLE_TABLE_COUNT) {
         return 0;
     }
 
@@ -164,7 +167,7 @@ int stage8b_vmm_map_page(uint32_t virtual_page_addr, uint32_t physical_frame_add
         return 0;
     }
 
-    expected_page_table = &g_stage8b_future_mapping_page_tables[table_slot];
+    expected_page_table = &g_stage8b_mutable_reserved_page_tables[table_slot];
     pde = page_directory->entries[pd_index];
 
     if ((pde & STAGE7A_PAGING_FLAG_PRESENT) == 0u) {
@@ -204,7 +207,7 @@ int stage8b_vmm_unmap_page(uint32_t virtual_page_addr)
         return 0;
     }
 
-    expected_page_table = &g_stage8b_future_mapping_page_tables[table_slot];
+    expected_page_table = &g_stage8b_mutable_reserved_page_tables[table_slot];
     pde = page_directory->entries[pd_index];
     if ((pde & STAGE7A_PAGING_FLAG_PRESENT) == 0u) {
         return 0;
