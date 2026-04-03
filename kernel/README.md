@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 8 early kernel baseline is active with paging enabled.
+Current status: Stage 9 early kernel baseline is active with paging enabled.
 
 Current implementation location:
 

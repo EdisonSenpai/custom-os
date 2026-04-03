@@ -55,7 +55,7 @@ Stage 9B self-check runs in early init:
 
 ## Completion Statement
 
-Stage 9B is complete and independently verified. Stage 9C is complete. Stage 9D remains not started.
+Stage 9B is complete and independently verified. Stage 9C and Stage 9D are complete. Stage 9 aggregate is complete. Stage 10 is not started.
 
 ## Files Touched
 

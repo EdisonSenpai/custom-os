@@ -53,6 +53,7 @@
 #define STAGE9A_FAIL_DETAIL 0x000900A0u
 #define STAGE9B_FAIL_DETAIL 0x000900B0u
 #define STAGE9C_FAIL_DETAIL 0x000900C0u
+#define STAGE9D_FAIL_DETAIL 0x000900D0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -184,6 +185,7 @@ static void stage8d_run_kheap_validation_self_check(void);
 static void stage9a_run_kheap_free_groundwork_self_check(void);
 static void stage9b_run_kheap_reuse_activation_self_check(void);
 static void stage9c_run_kheap_fragmentation_reuse_self_check(void);
+static void stage9d_run_kheap_lifecycle_validation_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -1932,6 +1934,136 @@ static void stage9c_run_kheap_fragmentation_reuse_self_check(void)
     }
 }
 
+static void stage9d_run_kheap_lifecycle_validation_self_check(void)
+{
+    uint32_t heap_start = 0u;
+    uint32_t heap_current_before = 0u;
+    uint32_t heap_end_exclusive = 0u;
+    uint32_t heap_mapped_end_exclusive = 0u;
+    uint32_t heap_current_after = 0u;
+    uint32_t alloc_a = 0u;
+    uint32_t alloc_b = 0u;
+    uint32_t alloc_c = 0u;
+    uint32_t alloc_d = 0u;
+    uint32_t alloc_e = 0u;
+    uint32_t alloc_f = 0u;
+    uint32_t expected_leftover_start = 0u;
+    int free_b_ok = 0;
+    int exact_reuse_ok = 0;
+    int free_c_ok = 0;
+    int split_reuse_ok = 0;
+    int leftover_fragment_reuse_ok = 0;
+    int invalid_free_reject_ok = 0;
+    int free_d_once_ok = 0;
+    int double_free_reject_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 9D heap lifecycle validation begin\n");
+
+    alloc_a = (uint32_t)(uintptr_t)stage8c_kheap_alloc(32u);
+    alloc_b = (uint32_t)(uintptr_t)stage8c_kheap_alloc(64u);
+    alloc_c = (uint32_t)(uintptr_t)stage8c_kheap_alloc(96u);
+
+    serial_write_label_hex("custom-os Stage 9D alloc A: ", alloc_a);
+    serial_write_label_hex("custom-os Stage 9D alloc B: ", alloc_b);
+    serial_write_label_hex("custom-os Stage 9D alloc C: ", alloc_c);
+
+    if (alloc_a == 0u || alloc_b == 0u || alloc_c == 0u || alloc_a >= alloc_b || alloc_b >= alloc_c) {
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_before,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    free_b_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_b) != 0);
+    if (free_b_ok == 0) {
+        passed = 0u;
+    }
+
+    alloc_d = (uint32_t)(uintptr_t)stage8c_kheap_alloc(64u);
+    serial_write_label_hex("custom-os Stage 9D alloc D exact-size candidate: ", alloc_d);
+    exact_reuse_ok = (alloc_d == alloc_b);
+    if (exact_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 9D exact-size reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D exact-size reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    free_c_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_c) != 0);
+    if (free_c_ok == 0) {
+        passed = 0u;
+    }
+
+    alloc_e = (uint32_t)(uintptr_t)stage8c_kheap_alloc(40u);
+    serial_write_label_hex("custom-os Stage 9D alloc E split candidate: ", alloc_e);
+    split_reuse_ok = (alloc_e == alloc_c);
+    if (split_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 9D split-reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D split-reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_f = (uint32_t)(uintptr_t)stage8c_kheap_alloc(40u);
+    serial_write_label_hex("custom-os Stage 9D alloc F leftover candidate: ", alloc_f);
+    expected_leftover_start = alloc_c + 40u + 16u;
+    leftover_fragment_reuse_ok = (alloc_f == expected_leftover_start);
+    if (leftover_fragment_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 9D leftover-fragment reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D leftover-fragment reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    invalid_free_reject_ok = (stage9a_kheap_free((void*)(uintptr_t)(heap_start + 4u)) == 0);
+    if (invalid_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 9D invalid free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D invalid free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    free_d_once_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_d) != 0);
+    if (free_d_once_ok == 0) {
+        passed = 0u;
+    }
+
+    double_free_reject_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_d) == 0);
+    if (double_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 9D double free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D double free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_after,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (heap_current_after != heap_current_before) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 9D: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9D: FAIL\n");
+        panic("Stage 9D heap lifecycle validation failed", STAGE9D_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2233,7 +2365,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.9.2 (Stage 9C): init start\n");
+    serial_write_text("custom-os v0.9.0 (Stage 9): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2261,6 +2393,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage9a_run_kheap_free_groundwork_self_check();
     stage9b_run_kheap_reuse_activation_self_check();
     stage9c_run_kheap_fragmentation_reuse_self_check();
+    stage9d_run_kheap_lifecycle_validation_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

@@ -1,6 +1,6 @@
 # Linker Notes
 
-Current status: Stage 9B still uses the same linker script baseline.
+Current status: Stage 9 complete still uses the same linker script baseline.
 
 Current files:
 

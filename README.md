@@ -1,10 +1,10 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 8 complete (8A + 8B + 8C + 8D) and verified in QEMU
+> Current status: Stage 9 complete (9A + 9B + 9C + 9D) and verified in QEMU. Stage 10 not started.
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 8 complete with active paging plus validated VMM policy/mapping and heap-bootstrap checks on top of the Stage 6 PMM lifecycle baseline.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 9 complete with active paging plus validated VMM policy/mapping and heap lifecycle behavior on top of the Stage 6 PMM lifecycle baseline.
 
-## Architecture snapshot (Stage 8)
+## Architecture snapshot (Stage 9)
 
 - 32-bit protected mode (Multiboot2 entry)
 - Paging enabled (CR3 loaded and CR0.PG set)
@@ -16,15 +16,18 @@ CustomOS is a from-scratch operating system project focused on low-level correct
 - PIT configured for periodic IRQ0 timer interrupts
 - Keyboard IRQ1 routed through IDT and raw scancodes read from port 0x60
 - Multiboot2 memory map parsing and early frame bookkeeping
+- Multiboot2 header is emitted from `stage0_entry.S` in an allocatable section (`.section .multiboot, "a"`)
 - Minimal PMM API: deterministic frame allocation, minimal free API, deterministic pending-free tracking, and FIFO reuse activation
+- PMM reservation filtering excludes kernel-occupied physical memory via linker-exported `__kernel_phys_start` and `__kernel_phys_end`
 - PMM lifecycle baseline (Stage 6A through Stage 6D) remains active
 - Stage 8A virtual layout policy baseline remains active
 - Stage 8B minimal single-page VMM map/unmap/query interface remains active
 - Stage 8C minimal bump-style heap bootstrap remains active
 - Stage 8D validation checks confirm controlled allocation behavior without allocator redesign
+- Stage 9A/9B/9C/9D heap lifecycle validation baseline remains active
 - Stage 6 timer and keyboard runtime behavior remains active under paging
 
-## Current baseline (Stage 8)
+## Current baseline (Stage 9)
 
 Implemented and verified:
 
@@ -58,8 +61,12 @@ Implemented and verified:
 - Stage 8B: minimal single-page VMM query/resolve/map/unmap interface.
 - Stage 8C: minimal PMM-backed, VMM-mapped bump-style kernel heap bootstrap.
 - Stage 8D: controlled allocation validation for alignment/order, mapped-end growth, and heap-window bounds.
+- Stage 9A: heap free groundwork and allocation tracking.
+- Stage 9B: deterministic exact-size freed-block reuse activation.
+- Stage 9C: deterministic split-capable reuse with valid leftover fragment handling.
+- Stage 9D: lifecycle validation suite for exact reuse, split reuse, leftover reuse, invalid free rejection, and double free rejection.
 
-## Stage 8 highlights
+## Stage 9 highlights
 
 - Stage 4 interrupt runtime behavior remains active after Stage 6 PMM lifecycle bring-up.
 - Stage 5A and 5B provide safe parsing and accounting summaries from Multiboot2 data.
@@ -70,6 +77,7 @@ Implemented and verified:
 - Stage 7C enables paging with explicit CR3/CR0 control-register operations.
 - Stage 7D validates active paging state and first-4 MiB identity behavior while preserving Stage 6 timer/keyboard runtime.
 - Stage 8D finalizes Stage 8 with deterministic heap growth and bounds validation under active paging.
+- Stage 9D finalizes Stage 9 with deterministic heap lifecycle validation over Stage 9A/9B/9C behavior.
 
 ## Scope boundaries
 
@@ -80,13 +88,14 @@ Implemented now:
 - Stage 4 IRQ runtime behavior (timer plus keyboard) and Stage 2 exception diagnostics.
 - Minimal PMM lifecycle through Stage 6A to Stage 6D.
 - Static identity-mapped paging baseline through Stage 7A to Stage 7D.
-- Minimal VMM policy/mapping and controlled heap-bootstrap validation through Stage 8A to Stage 8D.
+- Minimal VMM policy/mapping and controlled heap bootstrap through Stage 8A to Stage 8D.
+- Heap lifecycle validation baseline through Stage 9A to Stage 9D.
 
 Deliberately not implemented yet:
 
 - Advanced frame lifecycle features beyond current deterministic minimal PMM model.
 - Advanced virtual memory work beyond the current static first-4 MiB identity-mapped paging baseline.
-- Full heap allocator lifecycle (free paths, fragmentation strategy, kmalloc/kfree API surface).
+- Advanced heap allocator capabilities beyond current Stage 9 lifecycle baseline (coalescing policy expansion, advanced fit strategies, realloc or calloc, slab or buddy design).
 - Scheduler and task switching.
 - Filesystem and user-mode runtime.
 - Full x86_64 long-mode runtime.
@@ -97,7 +106,7 @@ Deliberately not implemented yet:
 - boot/grub/: GRUB configuration for bootable image generation.
 - arch/x86_64/: architecture-specific entry and interrupt/exception assembly stubs.
 - linker/: linker script and memory layout contract.
-- kernel/init/: staged early init and self-check flow through Stage 8 diagnostics.
+- kernel/init/: staged early init and self-check flow through Stage 9 diagnostics.
 - build/: shared Make configuration and build targets.
 - scripts/: QEMU run wrappers for shell and PowerShell workflows.
 
@@ -120,14 +129,15 @@ make iso
 
 ## Expected output
 
-### Normal Stage 8 run
+### Normal Stage 9 run
 
 VGA and COM1 serial should show:
 
-- custom-os v0.8.0 (Stage 8): init start
+- custom-os v0.9.0 (Stage 9): init start
 - custom-os Stage 5A/B/C/D summary markers
 - custom-os Stage 7A/7B/7C/7D markers
 - custom-os Stage 8A/8B/8C/8D markers
+- custom-os Stage 9A/9B/9C/9D markers
 - custom-os Stage 6: Multiboot2 handoff OK
 - custom-os Stage 6: IDT installed
 - custom-os Stage 6: PIC remapped + PIT started
@@ -193,9 +203,9 @@ Expected panic output (VGA and serial):
 
 ## Future direction
 
-- Keep the Stage 8 baseline stable under routine validation.
+- Keep the Stage 9 baseline stable under routine validation.
 - Preserve Stage 6 runtime behavior while paging is active.
-- Plan Stage 9 scope only after Stage 8 regressions remain clear.
+- Plan Stage 10 scope only after Stage 9 regressions remain clear. Stage 10 is not started.
 
 ## Key docs
 
@@ -224,3 +234,7 @@ Expected panic output (VGA and serial):
 - docs/milestones/stage-8b.md
 - docs/milestones/stage-8c.md
 - docs/milestones/stage-8d.md
+- docs/milestones/stage-9a.md
+- docs/milestones/stage-9b.md
+- docs/milestones/stage-9c.md
+- docs/milestones/stage-9d.md
