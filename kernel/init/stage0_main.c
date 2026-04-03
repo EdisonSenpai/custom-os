@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "mm/kmalloc.h"
 #include "mm/kheap.h"
 #include "mm/paging.h"
 #include "mm/vmm.h"
@@ -54,6 +55,7 @@
 #define STAGE9B_FAIL_DETAIL 0x000900B0u
 #define STAGE9C_FAIL_DETAIL 0x000900C0u
 #define STAGE9D_FAIL_DETAIL 0x000900D0u
+#define STAGE10A_FAIL_DETAIL 0x000A00A0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -186,6 +188,7 @@ static void stage9a_run_kheap_free_groundwork_self_check(void);
 static void stage9b_run_kheap_reuse_activation_self_check(void);
 static void stage9c_run_kheap_fragmentation_reuse_self_check(void);
 static void stage9d_run_kheap_lifecycle_validation_self_check(void);
+static void stage10a_run_kmalloc_interface_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2064,6 +2067,75 @@ static void stage9d_run_kheap_lifecycle_validation_self_check(void)
     }
 }
 
+static void stage10a_run_kmalloc_interface_self_check(void)
+{
+    void* alloc_large = (void*)0;
+    void* alloc_reused = (void*)0;
+    int free_large_ok = 0;
+    int exact_reuse_ok = 0;
+    int invalid_free_reject_ok = 0;
+    int free_once_ok = 0;
+    int double_free_reject_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 10A kmalloc interface validation begin\n");
+
+    alloc_large = kmalloc(1536u);
+    serial_write_label_hex("custom-os Stage 10A kmalloc alloc large: ", (uint32_t)(uintptr_t)alloc_large);
+
+    if (alloc_large == (void*)0) {
+        passed = 0u;
+    }
+
+    free_large_ok = (kfree(alloc_large) != 0);
+    if (free_large_ok != 0) {
+        serial_write_text("custom-os Stage 10A kfree valid free result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10A kfree valid free result: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_reused = kmalloc(1536u);
+    serial_write_label_hex("custom-os Stage 10A kmalloc exact-reuse candidate: ", (uint32_t)(uintptr_t)alloc_reused);
+
+    exact_reuse_ok = (alloc_reused == alloc_large);
+    if (exact_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 10A kmalloc exact-reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10A kmalloc exact-reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    invalid_free_reject_ok =
+        (kfree((void*)(uintptr_t)((uint32_t)(uintptr_t)alloc_reused + 4u)) == 0);
+    if (invalid_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 10A kfree invalid free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10A kfree invalid free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    free_once_ok = (kfree(alloc_reused) != 0);
+    if (free_once_ok == 0) {
+        passed = 0u;
+    }
+
+    double_free_reject_ok = (kfree(alloc_reused) == 0);
+    if (double_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 10A kfree double free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10A kfree double free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 10A: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10A: FAIL\n");
+        panic("Stage 10A kmalloc interface failed", STAGE10A_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2365,7 +2437,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.9.0 (Stage 9): init start\n");
+    serial_write_text("custom-os v0.10.0 (Stage 10A): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2394,6 +2466,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage9b_run_kheap_reuse_activation_self_check();
     stage9c_run_kheap_fragmentation_reuse_self_check();
     stage9d_run_kheap_lifecycle_validation_self_check();
+    stage10a_run_kmalloc_interface_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

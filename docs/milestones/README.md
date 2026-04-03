@@ -25,11 +25,13 @@
 - stage-9b.md: complete, deterministic exact-size freed-block reuse activation validated with Stage 9B PASS markers while preserving Stage 9A safety checks.
 - stage-9c.md: complete, deterministic split-capable reuse for larger freed blocks verified in QEMU with Stage 9C PASS markers.
 - stage-9d.md: complete, deterministic lifecycle validation suite over Stage 9A/9B/9C behavior verified in QEMU with Stage 9D PASS markers.
+- stage-10a.md: complete, public kernel allocation API wrappers (`kmalloc` and `kfree`) validated in QEMU with deterministic Stage 10A PASS markers.
 
-Current focus: Stage 9 is complete. Stage 9A, Stage 9B, Stage 9C, and Stage 9D are complete. Stage 10 is not started.
+Current focus: Stage 10 is split and active. Stage 10A is complete. Stage 10B and later are not started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
 Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, so full Stage 7 is complete.
 Stage 8 is split into 8A, 8B, 8C, and 8D. All Stage 8 sub-stages are complete, so full Stage 8 is complete.
-Stage 9 is split into 9A, 9B, 9C, and 9D. All Stage 9 sub-stages are complete, so full Stage 9 is complete. Stage 10 is not started.
+Stage 9 is split into 9A, 9B, 9C, and 9D. All Stage 9 sub-stages are complete, so full Stage 9 is complete.
+Stage 10 is split into 10A, 10B, 10C, 10D, and 10E. Stage 10A is complete. Stage 10B and later are not started.

@@ -43,14 +43,19 @@ Purpose: one-page status view for solo progress.
 | Stage 9C - Fragmentation-aware block handling | complete | 2026-04-03 | Add minimal deterministic split-capable reuse so larger freed blocks can satisfy smaller aligned allocations while preserving Stage 9A safety and Stage 9B exact-size behavior | QEMU validation: Stage 9C markers emitted for fragmentation-aware reuse begin, alloc large block, free large block accept PASS, alloc smaller block result reusing the same start, reused-start match PASS, leftover fragment allocation, leftover fragment reuse result PASS, and Stage 9C PASS; Stage 7/8/9A/9B outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 9D - Heap lifecycle validation suite | complete | 2026-04-03 | Add dedicated deterministic lifecycle self-check over Stage 9A/9B/9C behavior: exact-size reuse, split reuse, leftover-fragment reuse, invalid-free rejection, and double-free rejection | QEMU validation: Stage 9D markers emitted and passed for heap lifecycle validation begin, exact-size reuse result, split-reuse result, leftover-fragment reuse result, invalid free rejection result, double free rejection result, and final Stage 9D PASS; Stage 7/8/9A/9B/9C outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 9 - Heap lifecycle suite (9A-9D) | complete | 2026-04-03 | Stage 9 is split into 9A/9B/9C/9D and all sub-stages are complete and verified | Stage 9A through Stage 9D evidence set |
-| Stage 10 - Post-Stage-9 planning | not-started | TBD | Define Stage 10 scope and validation plan after Stage 9 stabilization | Not started |
+| Stage 10A - kmalloc public interface wrappers and validation | complete | 2026-04-03 | Provide thin public wrappers where `kmalloc(size)` calls `stage8c_kheap_alloc(size)` and `kfree(ptr)` calls `stage9a_kheap_free(ptr)`, with deterministic validation and no allocator redesign | QEMU validation: Stage 10A markers passed for allocation success, valid free PASS, exact-reuse PASS, invalid free rejection PASS, double free rejection PASS, and final Stage 10A PASS; Stage 7/8/9 outputs remained intact and Stage 6 timer/keyboard runtime continued |
+| Stage 10 - kmalloc and allocator hardening suite (10A-10E) | in-progress | TBD | Stage 10A complete and verified; Stage 10B through Stage 10E not started | Stage 10A evidence captured; 10B+ pending |
+| Stage 10B - allocator reuse policy expansion | not-started | TBD | Define and validate Stage 10B scope | Not started |
+| Stage 10C - allocator diagnostics expansion | not-started | TBD | Define and validate Stage 10C scope | Not started |
+| Stage 10D - allocator hardening checks | not-started | TBD | Define and validate Stage 10D scope | Not started |
+| Stage 10E - allocator integration closure | not-started | TBD | Define and validate Stage 10E scope | Not started |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 9 is complete and verified in QEMU (9A through 9D). Stage 10 planning only and not started.
+- Current focus: Stage 10 is split and active. Stage 10A is complete and verified in QEMU. Stage 10B and later are not started.
 
 ## Weekly update template
 
@@ -82,6 +87,7 @@ Purpose: one-page status view for solo progress.
   - Stage 9C split-capable reuse implementation completed and validated in QEMU (large allocation succeeded, free large block accept PASS, smaller allocation reused the same start address, leftover fragment allocation succeeded, leftover fragment reuse result PASS, Stage 9C PASS)
   - Stage 9D lifecycle validation completed and validated in QEMU (exact-size reuse PASS, split-reuse PASS, leftover-fragment reuse PASS, invalid free rejection PASS, double free rejection PASS, Stage 9D PASS)
   - Stage 9 aggregate completion achieved (9A through 9D)
+  - Stage 10A kmalloc public interface wrapper validation completed and validated in QEMU (allocation succeeded, valid free PASS, exact-reuse PASS, invalid free rejection PASS, double free rejection PASS, Stage 10A PASS; Stage 7/8/9 output and Stage 6 runtime intact)
 
 - Blockers:
   - None
@@ -91,7 +97,7 @@ Purpose: one-page status view for solo progress.
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
   - Keep Stage 8 baseline stable under routine boot/runtime checks
   - Keep Stage 9 baseline stable under routine validation
-  - Plan Stage 10 scope only; Stage 10 is not started
+  - Keep Stage 10A as the verified Stage 10 baseline while Stage 10B and later remain not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -109,3 +115,4 @@ Purpose: one-page status view for solo progress.
   - Stage 9B activates deterministic exact-size reuse of freed blocks before bump growth; no splitting, no coalescing, and no fragmentation-aware policy yet
   - Stage 9C adds deterministic split-capable reuse for larger freed blocks with minimal fragment validation; no coalescing and no advanced fit strategy yet
   - Stage 9D adds validation-only lifecycle assertions over existing Stage 9A/9B/9C allocator behavior; no allocator redesign and no Stage 10 behavior changes
+  - Stage 10A adds public interface wrappers only (`kmalloc` to `stage8c_kheap_alloc`, `kfree` to `stage9a_kheap_free`) with validation-only checks; no allocator redesign, no new allocation policy, and no Stage 10B behavior
