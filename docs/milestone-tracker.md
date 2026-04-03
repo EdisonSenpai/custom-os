@@ -44,11 +44,11 @@ Purpose: one-page status view for solo progress.
 | Stage 9D - Heap lifecycle validation suite | complete | 2026-04-03 | Add dedicated deterministic lifecycle self-check over Stage 9A/9B/9C behavior: exact-size reuse, split reuse, leftover-fragment reuse, invalid-free rejection, and double-free rejection | QEMU validation: Stage 9D markers emitted and passed for heap lifecycle validation begin, exact-size reuse result, split-reuse result, leftover-fragment reuse result, invalid free rejection result, double free rejection result, and final Stage 9D PASS; Stage 7/8/9A/9B/9C outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 9 - Heap lifecycle suite (9A-9D) | complete | 2026-04-03 | Stage 9 is split into 9A/9B/9C/9D and all sub-stages are complete and verified | Stage 9A through Stage 9D evidence set |
 | Stage 10A - kmalloc public interface wrappers and validation | complete | 2026-04-03 | Provide thin public wrappers where `kmalloc(size)` calls `stage8c_kheap_alloc(size)` and `kfree(ptr)` calls `stage9a_kheap_free(ptr)`, with deterministic validation and no allocator redesign | QEMU validation: Stage 10A markers passed for allocation success, valid free PASS, exact-reuse PASS, invalid free rejection PASS, double free rejection PASS, and final Stage 10A PASS; Stage 7/8/9 outputs remained intact and Stage 6 timer/keyboard runtime continued |
-| Stage 10 - kmalloc and allocator hardening suite (10A-10E) | in-progress | TBD | Stage 10A complete and verified; Stage 10B through Stage 10E not started | Stage 10A evidence captured; 10B+ pending |
 | Stage 10B - allocator reuse policy expansion | not-started | TBD | Define and validate Stage 10B scope | Not started |
 | Stage 10C - allocator diagnostics expansion | not-started | TBD | Define and validate Stage 10C scope | Not started |
 | Stage 10D - allocator hardening checks | not-started | TBD | Define and validate Stage 10D scope | Not started |
 | Stage 10E - allocator integration closure | not-started | TBD | Define and validate Stage 10E scope | Not started |
+| Stage 10 - kmalloc and allocator hardening suite (10A-10E) | in-progress | TBD | Stage 10A complete and verified; Stage 10B through Stage 10E not started | Stage 10A evidence captured; 10B+ pending |
 
 ## Current focus
 
