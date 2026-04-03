@@ -32,7 +32,7 @@ struct stage8c_kheap_state {
 
 static struct stage8c_kheap_state g_stage8c_kheap;
 
-static int stage9b_kheap_try_reuse_aligned_allocation(
+static int stage9c_kheap_try_reuse_aligned_allocation(
     uint32_t aligned_size,
     uint32_t* out_payload_start)
 {
@@ -71,8 +71,26 @@ static int stage9b_kheap_try_reuse_aligned_allocation(
 
         payload_end_exclusive = payload_start + header->payload_size;
 
-        if (header->state == STAGE9A_KHEAP_ALLOCATION_STATE_FREED && header->payload_size == aligned_size) {
-            header->state = STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED;
+        if (header->state == STAGE9A_KHEAP_ALLOCATION_STATE_FREED && header->payload_size >= aligned_size) {
+            const uint32_t remainder = header->payload_size - aligned_size;
+
+            if (remainder
+                >= ((uint32_t)sizeof(struct stage9a_kheap_allocation_header) + STAGE8C_KHEAP_MIN_ALIGNMENT)) {
+                const uint32_t split_header_start = payload_start + aligned_size;
+                struct stage9a_kheap_allocation_header* split_header =
+                    (struct stage9a_kheap_allocation_header*)(uintptr_t)split_header_start;
+
+                header->payload_size = aligned_size;
+                header->state = STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED;
+
+                split_header->magic = STAGE9A_KHEAP_ALLOCATION_HEADER_MAGIC;
+                split_header->payload_size = remainder - (uint32_t)sizeof(struct stage9a_kheap_allocation_header);
+                split_header->state = STAGE9A_KHEAP_ALLOCATION_STATE_FREED;
+                split_header->reserved = 0u;
+            } else {
+                header->state = STAGE9A_KHEAP_ALLOCATION_STATE_ALLOCATED;
+            }
+
             *out_payload_start = payload_start;
             return 1;
         }
@@ -181,7 +199,7 @@ void* stage8c_kheap_alloc(uint32_t size)
         return (void*)0;
     }
 
-    reuse_result = stage9b_kheap_try_reuse_aligned_allocation(aligned_size, &reused_payload_start);
+    reuse_result = stage9c_kheap_try_reuse_aligned_allocation(aligned_size, &reused_payload_start);
     if (reuse_result < 0) {
         return (void*)0;
     }

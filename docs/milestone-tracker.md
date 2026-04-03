@@ -40,16 +40,16 @@ Purpose: one-page status view for solo progress.
 | Stage 8 - VMM policy suite (8A-8D) | complete | 2026-04-02 | Stage 8 is split into 8A/8B/8C/8D and all sub-stages are validated with deterministic PASS markers under active paging | Stage 8A through Stage 8D evidence set |
 | Stage 9A - Heap free groundwork and allocation tracking | complete | 2026-04-03 | Add allocation metadata and minimal heap free validation API with deterministic valid/invalid/double-free handling, while preserving bump allocation and no reuse | QEMU validation: Stage 9A markers emitted and passed for free A accept, duplicate free reject, invalid free reject, null free reject, no-reuse monotonic allocation check, and final Stage 9A PASS; Stage 7/8 outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 9B - Free-list reuse activation | complete | 2026-04-03 | Activate deterministic reuse path for previously freed exact-size heap blocks before bump growth, while preserving Stage 9A free-validation safety checks | QEMU validation: Stage 9B markers emitted for reuse activation begin, alloc A, alloc B, free A accept PASS, reuse allocation result, reused-address match PASS, and Stage 9B PASS; Stage 9A output remained intact and Stage 6 timer/keyboard runtime continued |
-| Stage 9C - Fragmentation-aware block handling | not-started | TBD | Add minimal deterministic fragmentation-aware handling while preserving Stage 9A and Stage 9B behavior | Not started |
+| Stage 9C - Fragmentation-aware block handling | complete | 2026-04-03 | Add minimal deterministic split-capable reuse so larger freed blocks can satisfy smaller aligned allocations while preserving Stage 9A safety and Stage 9B exact-size behavior | QEMU validation: Stage 9C markers emitted for fragmentation-aware reuse begin, alloc large block, free large block accept PASS, alloc smaller block result reusing the same start, reused-start match PASS, leftover fragment allocation, leftover fragment reuse result PASS, and Stage 9C PASS; Stage 7/8/9A/9B outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 9D - Heap lifecycle validation suite | not-started | TBD | Add final validation coverage for allocation/free lifecycle behavior under Stage 9 scope | Not started |
-| Stage 9 - Heap lifecycle suite (9A-9D) | in-progress | TBD | Stage 9 is split into 9A/9B/9C/9D; Stage 9A and Stage 9B are complete while 9C/9D are not started | Stage 9A and Stage 9B evidence sets plus Stage 9C/9D pending |
+| Stage 9 - Heap lifecycle suite (9A-9D) | in-progress | TBD | Stage 9 is split into 9A/9B/9C/9D; Stage 9A, Stage 9B, and Stage 9C are complete while Stage 9D is not started | Stage 9A, Stage 9B, and Stage 9C evidence sets plus Stage 9D pending |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 9 is split and active. Stage 9A and Stage 9B are complete. Stage 9C and Stage 9D are not started.
+- Current focus: Stage 9 is split and active. Stage 9A, Stage 9B, and Stage 9C are complete. Stage 9D is not started.
 
 ## Weekly update template
 
@@ -78,6 +78,7 @@ Purpose: one-page status view for solo progress.
   - Stage 8 aggregate completion achieved (8A through 8D)
   - Stage 9A heap free groundwork completed and validated in QEMU (valid free accepted, duplicate/invalid/null free rejected, no-reuse monotonic allocation check passed, Stage 9A PASS)
   - Stage 9B deterministic freed-block reuse activation completed and validated in QEMU (free A accepted, exact-size reuse allocation returned freed address, Stage 9B PASS)
+  - Stage 9C split-capable reuse implementation completed and validated in QEMU (large allocation succeeded, free large block accept PASS, smaller allocation reused the same start address, leftover fragment allocation succeeded, leftover fragment reuse result PASS, Stage 9C PASS)
 
 - Blockers:
   - None
@@ -86,7 +87,7 @@ Purpose: one-page status view for solo progress.
   - Keep Stage 7 baseline stable under routine boot/runtime checks
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
   - Keep Stage 8 baseline stable under routine boot/runtime checks
-  - Keep Stage 9A and Stage 9B baselines stable and begin Stage 9C only after explicit scope confirmation
+  - Keep Stage 9A/9B/9C baselines stable; Stage 9D remains not started until explicitly started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -102,3 +103,4 @@ Purpose: one-page status view for solo progress.
   - Stage 8D adds validation-only controlled allocation checks over the existing Stage 8C bump allocator; no free logic, no allocator redesign, and no Stage 9 behavior changes
   - Stage 9A adds metadata-backed free validation only; freed blocks are not reused and fragmentation handling is intentionally deferred to Stage 9B/9C
   - Stage 9B activates deterministic exact-size reuse of freed blocks before bump growth; no splitting, no coalescing, and no fragmentation-aware policy yet
+  - Stage 9C adds deterministic split-capable reuse for larger freed blocks with minimal fragment validation; no coalescing and no advanced fit strategy yet

@@ -52,6 +52,7 @@
 #define STAGE8D_FAIL_DETAIL 0x000800D0u
 #define STAGE9A_FAIL_DETAIL 0x000900A0u
 #define STAGE9B_FAIL_DETAIL 0x000900B0u
+#define STAGE9C_FAIL_DETAIL 0x000900C0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -182,6 +183,7 @@ static void stage8c_run_kheap_bootstrap_self_check(void);
 static void stage8d_run_kheap_validation_self_check(void);
 static void stage9a_run_kheap_free_groundwork_self_check(void);
 static void stage9b_run_kheap_reuse_activation_self_check(void);
+static void stage9c_run_kheap_fragmentation_reuse_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -1746,7 +1748,7 @@ static void stage9a_run_kheap_free_groundwork_self_check(void)
         passed = 0u;
     }
 
-    alloc_c = (uint32_t)(uintptr_t)stage8c_kheap_alloc(16u);
+    alloc_c = (uint32_t)(uintptr_t)stage8c_kheap_alloc(64u);
     serial_write_label_hex("custom-os Stage 9A alloc C after free: ", alloc_c);
 
     no_reuse_monotonic_ok = (alloc_c != 0u && alloc_c > alloc_b);
@@ -1837,6 +1839,96 @@ static void stage9b_run_kheap_reuse_activation_self_check(void)
     } else {
         serial_write_text("custom-os Stage 9B: FAIL\n");
         panic("Stage 9B heap reuse activation failed", STAGE9B_FAIL_DETAIL);
+    }
+}
+
+static void stage9c_run_kheap_fragmentation_reuse_self_check(void)
+{
+    uint32_t heap_start = 0u;
+    uint32_t heap_current_before_reuse = 0u;
+    uint32_t heap_end_exclusive = 0u;
+    uint32_t heap_mapped_end_exclusive = 0u;
+    uint32_t heap_current_after_reuse = 0u;
+    uint32_t alloc_large = 0u;
+    uint32_t alloc_small = 0u;
+    uint32_t alloc_leftover = 0u;
+    uint32_t expected_leftover_start = 0u;
+    int free_large_ok = 0;
+    int reused_start_match_ok = 0;
+    int leftover_fragment_reuse_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 9C fragmentation-aware reuse begin\n");
+
+    alloc_large = (uint32_t)(uintptr_t)stage8c_kheap_alloc(96u);
+    serial_write_label_hex("custom-os Stage 9C alloc large block: ", alloc_large);
+
+    if (alloc_large == 0u) {
+        passed = 0u;
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_before_reuse,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    free_large_ok = (stage9a_kheap_free((void*)(uintptr_t)alloc_large) != 0);
+    if (free_large_ok != 0) {
+        serial_write_text("custom-os Stage 9C free large block accept: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9C free large block accept: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_small = (uint32_t)(uintptr_t)stage8c_kheap_alloc(40u);
+    serial_write_label_hex("custom-os Stage 9C alloc smaller block result: ", alloc_small);
+
+    reused_start_match_ok = (alloc_small == alloc_large);
+    if (reused_start_match_ok != 0) {
+        serial_write_text("custom-os Stage 9C reused-start match: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9C reused-start match: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_leftover = (uint32_t)(uintptr_t)stage8c_kheap_alloc(40u);
+    serial_write_label_hex("custom-os Stage 9C leftover fragment allocation: ", alloc_leftover);
+
+    expected_leftover_start = alloc_large + 40u + 16u;
+    leftover_fragment_reuse_ok = (alloc_leftover == expected_leftover_start);
+
+    if (leftover_fragment_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 9C leftover fragment reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9C leftover fragment reuse result: FAIL\n");
+    }
+
+    if (stage8c_kheap_get_state(
+            &heap_start,
+            &heap_current_after_reuse,
+            &heap_end_exclusive,
+            &heap_mapped_end_exclusive)
+        == 0) {
+        passed = 0u;
+    }
+
+    if (heap_current_after_reuse != heap_current_before_reuse) {
+        passed = 0u;
+    }
+
+    if (leftover_fragment_reuse_ok == 0) {
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 9C: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 9C: FAIL\n");
+        panic("Stage 9C fragmentation reuse failed", STAGE9C_FAIL_DETAIL);
     }
 }
 
@@ -2141,7 +2233,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.9.1 (Stage 9B): init start\n");
+    serial_write_text("custom-os v0.9.2 (Stage 9C): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2168,6 +2260,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage8d_run_kheap_validation_self_check();
     stage9a_run_kheap_free_groundwork_self_check();
     stage9b_run_kheap_reuse_activation_self_check();
+    stage9c_run_kheap_fragmentation_reuse_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
