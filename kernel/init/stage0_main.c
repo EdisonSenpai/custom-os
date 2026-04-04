@@ -56,6 +56,7 @@
 #define STAGE9C_FAIL_DETAIL 0x000900C0u
 #define STAGE9D_FAIL_DETAIL 0x000900D0u
 #define STAGE10A_FAIL_DETAIL 0x000A00A0u
+#define STAGE10B_FAIL_DETAIL 0x000A00B0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -189,6 +190,7 @@ static void stage9b_run_kheap_reuse_activation_self_check(void);
 static void stage9c_run_kheap_fragmentation_reuse_self_check(void);
 static void stage9d_run_kheap_lifecycle_validation_self_check(void);
 static void stage10a_run_kmalloc_interface_self_check(void);
+static void stage10b_run_kmalloc_allocation_semantics_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2136,6 +2138,64 @@ static void stage10a_run_kmalloc_interface_self_check(void)
     }
 }
 
+static void stage10b_run_kmalloc_allocation_semantics_self_check(void)
+{
+    void* alloc_valid = (void*)0;
+    int kmalloc_zero_size_ok = 0;
+    int kfree_null_ok = 0;
+    int kfree_valid_ok = 0;
+    int invalid_free_reject_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 10B allocation semantics begin\n");
+
+    kmalloc_zero_size_ok = (kmalloc(0u) == (void*)0);
+    if (kmalloc_zero_size_ok != 0) {
+        serial_write_text("custom-os Stage 10B kmalloc zero-size result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10B kmalloc zero-size result: FAIL\n");
+        passed = 0u;
+    }
+
+    kfree_null_ok = (kfree((void*)0) == 0);
+    if (kfree_null_ok != 0) {
+        serial_write_text("custom-os Stage 10B kfree null result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10B kfree null result: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_valid = kmalloc(128u);
+    serial_write_label_hex("custom-os Stage 10B kmalloc valid result: ", (uint32_t)(uintptr_t)alloc_valid);
+    if (alloc_valid == (void*)0) {
+        passed = 0u;
+    }
+
+    kfree_valid_ok = (kfree(alloc_valid) != 0);
+    if (kfree_valid_ok != 0) {
+        serial_write_text("custom-os Stage 10B kfree valid result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10B kfree valid result: FAIL\n");
+        passed = 0u;
+    }
+
+    invalid_free_reject_ok =
+        (kfree((void*)(uintptr_t)((uint32_t)(uintptr_t)alloc_valid + 4u)) == 0);
+    if (invalid_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 10B invalid free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10B invalid free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 10B: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10B: FAIL\n");
+        panic("Stage 10B allocation semantics failed", STAGE10B_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2437,7 +2497,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.10.0 (Stage 10A): init start\n");
+    serial_write_text("custom-os v0.10.1 (Stage 10B): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2467,6 +2527,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage9c_run_kheap_fragmentation_reuse_self_check();
     stage9d_run_kheap_lifecycle_validation_self_check();
     stage10a_run_kmalloc_interface_self_check();
+    stage10b_run_kmalloc_allocation_semantics_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
