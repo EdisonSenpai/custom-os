@@ -59,6 +59,7 @@
 #define STAGE10A_FAIL_DETAIL 0x000A00A0u
 #define STAGE10B_FAIL_DETAIL 0x000A00B0u
 #define STAGE10C_FAIL_DETAIL 0x000A00C0u
+#define STAGE10D_FAIL_DETAIL 0x000A00D0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -194,6 +195,7 @@ static void stage9d_run_kheap_lifecycle_validation_self_check(void);
 static void stage10a_run_kmalloc_interface_self_check(void);
 static void stage10b_run_kmalloc_allocation_semantics_self_check(void);
 static void stage10c_run_kmemory_primitives_self_check(void);
+static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2318,6 +2320,131 @@ static void stage10c_run_kmemory_primitives_self_check(void)
     }
 }
 
+static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void)
+{
+    uint32_t alloc_a = 0u;
+    uint32_t alloc_b = 0u;
+    uint32_t alloc_c = 0u;
+    uint32_t alloc_d = 0u;
+    uint32_t alloc_e = 0u;
+    uint32_t alloc_f = 0u;
+    uint32_t alloc_split_large = 0u;
+    uint32_t expected_leftover = 0u;
+    int exact_reuse_ok = 0;
+    int split_reuse_ok = 0;
+    int leftover_reuse_ok = 0;
+    int invalid_free_reject_ok = 0;
+    int free_d_once_ok = 0;
+    int double_free_reject_ok = 0;
+    int alignment_ordering_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 10D allocator hardening validation begin\n");
+
+    alloc_a = (uint32_t)(uintptr_t)kmalloc(32u);
+    alloc_b = (uint32_t)(uintptr_t)kmalloc(64u);
+    alloc_c = (uint32_t)(uintptr_t)kmalloc(96u);
+
+    serial_write_label_hex("custom-os Stage 10D alloc A: ", alloc_a);
+    serial_write_label_hex("custom-os Stage 10D alloc B: ", alloc_b);
+    serial_write_label_hex("custom-os Stage 10D alloc C: ", alloc_c);
+
+    alignment_ordering_ok =
+        (alloc_a != 0u
+            && alloc_b != 0u
+            && alloc_c != 0u
+            && alloc_a < alloc_b
+            && alloc_b < alloc_c
+            && (alloc_a & 0x7u) == 0u
+            && (alloc_b & 0x7u) == 0u
+            && (alloc_c & 0x7u) == 0u);
+
+    if (alignment_ordering_ok == 0) {
+        passed = 0u;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_b) == 0) {
+        passed = 0u;
+    }
+
+    alloc_d = (uint32_t)(uintptr_t)kmalloc(64u);
+    serial_write_label_hex("custom-os Stage 10D exact-size reuse candidate: ", alloc_d);
+
+    exact_reuse_ok = (alloc_d == alloc_b);
+    if (exact_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 10D exact-size reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D exact-size reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_split_large = (uint32_t)(uintptr_t)kmalloc(4096u);
+    if (alloc_split_large == 0u) {
+        passed = 0u;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_split_large) == 0) {
+        passed = 0u;
+    }
+
+    alloc_e = (uint32_t)(uintptr_t)kmalloc(2048u);
+    serial_write_label_hex("custom-os Stage 10D split-reuse candidate: ", alloc_e);
+
+    split_reuse_ok = (alloc_e == alloc_split_large);
+    if (split_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 10D split-reuse result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D split-reuse result: FAIL\n");
+        passed = 0u;
+    }
+
+    alloc_f = (uint32_t)(uintptr_t)kmalloc(1800u);
+    serial_write_label_hex("custom-os Stage 10D leftover-fragment candidate: ", alloc_f);
+
+    expected_leftover = alloc_split_large + 2048u + 16u;
+    leftover_reuse_ok = (alloc_f == expected_leftover);
+    if (leftover_reuse_ok != 0) {
+        serial_write_text("custom-os Stage 10D leftover-fragment result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D leftover-fragment result: FAIL\n");
+        passed = 0u;
+    }
+
+    invalid_free_reject_ok = (kfree((void*)(uintptr_t)(alloc_d + 4u)) == 0);
+    if (invalid_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 10D invalid free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D invalid free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    free_d_once_ok = (kfree((void*)(uintptr_t)alloc_d) != 0);
+    if (free_d_once_ok == 0) {
+        passed = 0u;
+    }
+
+    double_free_reject_ok = (kfree((void*)(uintptr_t)alloc_d) == 0);
+    if (double_free_reject_ok != 0) {
+        serial_write_text("custom-os Stage 10D double free rejection result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D double free rejection result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (alignment_ordering_ok != 0) {
+        serial_write_text("custom-os Stage 10D alignment/ordering result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D alignment/ordering result: FAIL\n");
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 10D: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10D: FAIL\n");
+        panic("Stage 10D allocator hardening failed", STAGE10D_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2619,7 +2746,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.10.2 (Stage 10C): init start\n");
+    serial_write_text("custom-os v0.10.4 (Stage 10D): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2651,6 +2778,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage10a_run_kmalloc_interface_self_check();
     stage10b_run_kmalloc_allocation_semantics_self_check();
     stage10c_run_kmemory_primitives_self_check();
+    stage10d_run_kmalloc_lifecycle_hardening_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
