@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "mm/kmalloc.h"
+#include "mm/kmemory.h"
 #include "mm/kheap.h"
 #include "mm/paging.h"
 #include "mm/vmm.h"
@@ -57,6 +58,7 @@
 #define STAGE9D_FAIL_DETAIL 0x000900D0u
 #define STAGE10A_FAIL_DETAIL 0x000A00A0u
 #define STAGE10B_FAIL_DETAIL 0x000A00B0u
+#define STAGE10C_FAIL_DETAIL 0x000A00C0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -191,6 +193,7 @@ static void stage9c_run_kheap_fragmentation_reuse_self_check(void);
 static void stage9d_run_kheap_lifecycle_validation_self_check(void);
 static void stage10a_run_kmalloc_interface_self_check(void);
 static void stage10b_run_kmalloc_allocation_semantics_self_check(void);
+static void stage10c_run_kmemory_primitives_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2196,6 +2199,125 @@ static void stage10b_run_kmalloc_allocation_semantics_self_check(void)
     }
 }
 
+static void stage10c_run_kmemory_primitives_self_check(void)
+{
+    uint8_t memset_buffer[16];
+    uint8_t memcpy_src[16];
+    uint8_t memcpy_dst[16];
+    uint8_t move_buffer[8];
+    uint8_t expected_move[8];
+    uint32_t i = 0u;
+    int kmemset_ok = 1;
+    int kmemcpy_ok = 1;
+    int kmemmove_overlap_ok = 1;
+    int kmemcmp_equality_ok = 0;
+    int kmemcmp_difference_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 10C memory primitives validation begin\n");
+
+    kmemset(memset_buffer, 0xA5, (uint32_t)sizeof(memset_buffer));
+    i = 0u;
+    while (i < (uint32_t)sizeof(memset_buffer)) {
+        if (memset_buffer[i] != 0xA5u) {
+            kmemset_ok = 0;
+            break;
+        }
+
+        i++;
+    }
+
+    if (kmemset_ok != 0) {
+        serial_write_text("custom-os Stage 10C kmemset result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C kmemset result: FAIL\n");
+        passed = 0u;
+    }
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(memcpy_src)) {
+        memcpy_src[i] = (uint8_t)(i + 1u);
+        memcpy_dst[i] = 0u;
+        i++;
+    }
+
+    kmemcpy(memcpy_dst, memcpy_src, (uint32_t)sizeof(memcpy_src));
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(memcpy_src)) {
+        if (memcpy_dst[i] != memcpy_src[i]) {
+            kmemcpy_ok = 0;
+            break;
+        }
+
+        i++;
+    }
+
+    if (kmemcpy_ok != 0) {
+        serial_write_text("custom-os Stage 10C kmemcpy result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C kmemcpy result: FAIL\n");
+        passed = 0u;
+    }
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(move_buffer)) {
+        move_buffer[i] = (uint8_t)i;
+        expected_move[i] = (uint8_t)i;
+        i++;
+    }
+
+    expected_move[2] = 0u;
+    expected_move[3] = 1u;
+    expected_move[4] = 2u;
+    expected_move[5] = 3u;
+    expected_move[6] = 4u;
+    expected_move[7] = 5u;
+
+    kmemmove(&move_buffer[2], &move_buffer[0], 6u);
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(move_buffer)) {
+        if (move_buffer[i] != expected_move[i]) {
+            kmemmove_overlap_ok = 0;
+            break;
+        }
+
+        i++;
+    }
+
+    if (kmemmove_overlap_ok != 0) {
+        serial_write_text("custom-os Stage 10C kmemmove overlap result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C kmemmove overlap result: FAIL\n");
+        passed = 0u;
+    }
+
+    kmemcmp_equality_ok = (kmemcmp(memcpy_src, memcpy_dst, (uint32_t)sizeof(memcpy_src)) == 0);
+    if (kmemcmp_equality_ok != 0) {
+        serial_write_text("custom-os Stage 10C kmemcmp equality result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C kmemcmp equality result: FAIL\n");
+        passed = 0u;
+    }
+
+    memcpy_dst[7] ^= 0x01u;
+    kmemcmp_difference_ok = (kmemcmp(memcpy_src, memcpy_dst, (uint32_t)sizeof(memcpy_src)) != 0);
+    if (kmemcmp_difference_ok != 0) {
+        serial_write_text("custom-os Stage 10C kmemcmp difference result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C kmemcmp difference result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 10C: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10C: FAIL\n");
+        panic("Stage 10C memory primitives failed", STAGE10C_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2497,7 +2619,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.10.1 (Stage 10B): init start\n");
+    serial_write_text("custom-os v0.10.2 (Stage 10C): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2528,6 +2650,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage9d_run_kheap_lifecycle_validation_self_check();
     stage10a_run_kmalloc_interface_self_check();
     stage10b_run_kmalloc_allocation_semantics_self_check();
+    stage10c_run_kmemory_primitives_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();
