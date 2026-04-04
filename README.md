@@ -1,10 +1,10 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 9 complete (9A + 9B + 9C + 9D) and verified in QEMU. Stage 10 not started.
+> Current status: Stage 10 complete (10A + 10B + 10C + 10D + 10E) and verified in QEMU. Stage 11 not started.
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 9 complete with active paging plus validated VMM policy/mapping and heap lifecycle behavior on top of the Stage 6 PMM lifecycle baseline.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 10 complete with active paging plus validated public allocation API behavior and memory utility primitives on top of the Stage 6 PMM lifecycle baseline.
 
-## Architecture snapshot (Stage 9)
+## Architecture snapshot (Stage 10)
 
 - 32-bit protected mode (Multiboot2 entry)
 - Paging enabled (CR3 loaded and CR0.PG set)
@@ -25,9 +25,10 @@ CustomOS is a from-scratch operating system project focused on low-level correct
 - Stage 8C minimal bump-style heap bootstrap remains active
 - Stage 8D validation checks confirm controlled allocation behavior without allocator redesign
 - Stage 9A/9B/9C/9D heap lifecycle validation baseline remains active
+- Stage 10A/10B/10C/10D/10E public allocation API validation baseline remains active
 - Stage 6 timer and keyboard runtime behavior remains active under paging
 
-## Current baseline (Stage 9)
+## Current baseline (Stage 10)
 
 Implemented and verified:
 
@@ -65,8 +66,13 @@ Implemented and verified:
 - Stage 9B: deterministic exact-size freed-block reuse activation.
 - Stage 9C: deterministic split-capable reuse with valid leftover fragment handling.
 - Stage 9D: lifecycle validation suite for exact reuse, split reuse, leftover reuse, invalid free rejection, and double free rejection.
+- Stage 10A: public `kmalloc`/`kfree` API wrapper validation.
+- Stage 10B: wrapper semantics and invariants validation (`kmalloc(0)`, `kfree(NULL)`).
+- Stage 10C: memory utility primitive validation (`kmemset`, `kmemcpy`, `kmemmove`, `kmemcmp`).
+- Stage 10D: public API lifecycle hardening validation.
+- Stage 10E: final composed allocation API validation suite.
 
-## Stage 9 highlights
+## Stage 10 highlights
 
 - Stage 4 interrupt runtime behavior remains active after Stage 6 PMM lifecycle bring-up.
 - Stage 5A and 5B provide safe parsing and accounting summaries from Multiboot2 data.
@@ -78,6 +84,7 @@ Implemented and verified:
 - Stage 7D validates active paging state and first-4 MiB identity behavior while preserving Stage 6 timer/keyboard runtime.
 - Stage 8D finalizes Stage 8 with deterministic heap growth and bounds validation under active paging.
 - Stage 9D finalizes Stage 9 with deterministic heap lifecycle validation over Stage 9A/9B/9C behavior.
+- Stage 10A through Stage 10E finalize the public allocation API surface with deterministic composed validation and no allocator redesign.
 
 ## Scope boundaries
 
@@ -90,12 +97,13 @@ Implemented now:
 - Static identity-mapped paging baseline through Stage 7A to Stage 7D.
 - Minimal VMM policy/mapping and controlled heap bootstrap through Stage 8A to Stage 8D.
 - Heap lifecycle validation baseline through Stage 9A to Stage 9D.
+- Public allocation API validation suite through Stage 10A to Stage 10E.
 
 Deliberately not implemented yet:
 
 - Advanced frame lifecycle features beyond current deterministic minimal PMM model.
 - Advanced virtual memory work beyond the current static first-4 MiB identity-mapped paging baseline.
-- Advanced heap allocator capabilities beyond current Stage 9 lifecycle baseline (coalescing policy expansion, advanced fit strategies, realloc or calloc, slab or buddy design).
+- Advanced heap allocator capabilities beyond current Stage 10 validation baseline (coalescing policy expansion, advanced fit strategies, realloc or calloc, slab or buddy design).
 - Scheduler and task switching.
 - Filesystem and user-mode runtime.
 - Full x86_64 long-mode runtime.
@@ -106,7 +114,7 @@ Deliberately not implemented yet:
 - boot/grub/: GRUB configuration for bootable image generation.
 - arch/x86_64/: architecture-specific entry and interrupt/exception assembly stubs.
 - linker/: linker script and memory layout contract.
-- kernel/init/: staged early init and self-check flow through Stage 9 diagnostics.
+- kernel/init/: staged early init and self-check flow through Stage 10 diagnostics.
 - build/: shared Make configuration and build targets.
 - scripts/: QEMU run wrappers for shell and PowerShell workflows.
 
@@ -129,15 +137,16 @@ make iso
 
 ## Expected output
 
-### Normal Stage 9 run
+### Normal Stage 10 run
 
 VGA and COM1 serial should show:
 
-- custom-os v0.9.0 (Stage 9): init start
+- custom-os v0.10.5 (Stage 10E): init start
 - custom-os Stage 5A/B/C/D summary markers
 - custom-os Stage 7A/7B/7C/7D markers
 - custom-os Stage 8A/8B/8C/8D markers
 - custom-os Stage 9A/9B/9C/9D markers
+- custom-os Stage 10A/10B/10C/10D/10E markers
 - custom-os Stage 6: Multiboot2 handoff OK
 - custom-os Stage 6: IDT installed
 - custom-os Stage 6: PIC remapped + PIT started
@@ -203,9 +212,9 @@ Expected panic output (VGA and serial):
 
 ## Future direction
 
-- Keep the Stage 9 baseline stable under routine validation.
+- Keep the Stage 10 complete baseline stable under routine validation.
 - Preserve Stage 6 runtime behavior while paging is active.
-- Plan Stage 10 scope only after Stage 9 regressions remain clear. Stage 10 is not started.
+- Stage 11 is not started.
 
 ## Key docs
 
@@ -238,3 +247,8 @@ Expected panic output (VGA and serial):
 - docs/milestones/stage-9b.md
 - docs/milestones/stage-9c.md
 - docs/milestones/stage-9d.md
+- docs/milestones/stage-10a.md
+- docs/milestones/stage-10b.md
+- docs/milestones/stage-10c.md
+- docs/milestones/stage-10d.md
+- docs/milestones/stage-10e.md

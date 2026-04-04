@@ -1,6 +1,6 @@
 # GRUB Configuration Notes
 
-Current status: active in Stage 9.
+Current status: active in Stage 10 complete baseline.
 
 Current files:
 

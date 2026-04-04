@@ -47,15 +47,15 @@ Purpose: one-page status view for solo progress.
 | Stage 10B - allocation semantics and invariants | complete | 2026-04-04 | Define explicit public wrapper semantics (`kmalloc(0)` returns NULL, `kfree(NULL)` returns 0) and validate normal alloc/free plus invalid-free rejection with deterministic markers, without allocator redesign | QEMU validation: Stage 10B markers passed for zero-size kmalloc PASS, null kfree PASS, valid kmalloc result, valid kfree PASS, invalid free rejection PASS, and final Stage 10B PASS; Stage 10A and Stage 9/8/7 outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 10C - memory utility primitives | complete | 2026-04-04 | Add freestanding kernel-owned memory primitives (`kmemset`, `kmemcpy`, `kmemmove`, `kmemcmp`) and deterministic validation markers without allocator redesign | QEMU validation: Stage 10C markers passed for kmemset PASS, kmemcpy PASS, kmemmove overlap PASS, kmemcmp equality PASS, kmemcmp difference PASS, and final Stage 10C PASS; Stage 10A/10B and Stage 9/8/7 outputs remained intact and Stage 6 timer/keyboard runtime continued |
 | Stage 10D - public API lifecycle hardening validation | complete | 2026-04-04 | Add validation-only `kmalloc`/`kfree` lifecycle hardening self-check through public API (multi-alloc alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection) with deterministic markers and no allocator redesign | QEMU validation: Stage 10D markers passed for alloc A/B/C, alignment/ordering PASS, exact-size reuse candidate/result PASS, split-reuse candidate/result PASS, leftover-fragment candidate/result PASS, invalid free rejection PASS, double free rejection PASS, and final Stage 10D PASS; Stage 10A/10B/10C and Stage 9/8/7 outputs remained intact and Stage 6 timer/scancode runtime continued |
-| Stage 10E - allocator integration closure | not-started | TBD | Define and validate Stage 10E scope | Not started |
-| Stage 10 - kmalloc and allocator hardening suite (10A-10E) | in-progress | TBD | Stage 10A through Stage 10D are complete and verified; Stage 10E not started | Stage 10A/10B/10C/10D evidence captured; 10E pending |
+| Stage 10E - allocation API validation suite | complete | 2026-04-04 | Add final deterministic validation suite over full public memory interface (`kmalloc`/`kfree` and `kmemory` primitives), confirming wrapper semantics and composed lifecycle behavior without allocator redesign | QEMU validation: Stage 10E markers passed for allocation API suite begin, kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, and final Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 outputs remained intact and Stage 6 tick/scancode runtime continued |
+| Stage 10 - kmalloc and allocator hardening suite (10A-10E) | complete | 2026-04-04 | Stage 10A through Stage 10E are complete and verified with deterministic public API validation and no allocator redesign | Stage 10A/10B/10C/10D/10E evidence captured |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 10 is split and active. Stage 10A through Stage 10D are complete and verified in QEMU. Stage 10E is not started.
+- Current focus: Stage 10 is complete and verified in QEMU (10A through 10E). Stage 11 is not started.
 
 ## Weekly update template
 
@@ -91,6 +91,7 @@ Purpose: one-page status view for solo progress.
   - Stage 10B allocation semantics and invariants completed and validated in QEMU (kmalloc zero-size PASS, kfree null PASS, kmalloc valid result emitted, kfree valid PASS, invalid free rejection PASS, Stage 10B PASS; Stage 10A and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 10C memory utility primitives completed and validated in QEMU (kmemset PASS, kmemcpy PASS, kmemmove overlap PASS, kmemcmp equality PASS, kmemcmp difference PASS, Stage 10C PASS; Stage 10A/10B and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 10D public API lifecycle hardening validation completed and validated in QEMU (alloc A/B/C emitted, alignment/ordering PASS, exact-size reuse PASS, split-reuse PASS, leftover-fragment PASS, invalid free rejection PASS, double free rejection PASS, Stage 10D PASS; Stage 10A/10B/10C and Stage 9/8/7 output intact, Stage 6 runtime intact)
+  - Stage 10E allocation API validation suite completed and validated in QEMU (kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 output intact, Stage 6 runtime intact)
 
 - Blockers:
   - None
@@ -100,7 +101,7 @@ Purpose: one-page status view for solo progress.
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
   - Keep Stage 8 baseline stable under routine boot/runtime checks
   - Keep Stage 9 baseline stable under routine validation
-  - Keep Stage 10A through Stage 10D as the verified Stage 10 baseline while Stage 10E remains not started
+  - Keep Stage 10 complete baseline (10A through 10E) stable under routine validation while Stage 11 remains not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -122,4 +123,4 @@ Purpose: one-page status view for solo progress.
   - Stage 10B adds wrapper-level allocation semantics and invariant checks only (`kmalloc(0)` returns NULL, `kfree(NULL)` returns 0) with deterministic validation; no allocator-internal redesign and no Stage 10C behavior
   - Stage 10C adds freestanding memory primitive helpers (`kmemset`, `kmemcpy`, overlap-safe `kmemmove`, `kmemcmp`) and validation-only checks; no allocator redesign and no Stage 10D behavior
   - Stage 10D adds validation-only public API lifecycle hardening checks (alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection); no allocator redesign and no Stage 10E behavior
-  - Stage 10C adds freestanding memory primitive helpers (`kmemset`, `kmemcpy`, overlap-safe `kmemmove`, `kmemcmp`) and validation-only checks; no allocator redesign and no Stage 10D behavior
+  - Stage 10E adds validation-only composed public API suite checks across lifecycle, wrapper semantics, and memory primitives; no allocator redesign and no Stage 11 behavior

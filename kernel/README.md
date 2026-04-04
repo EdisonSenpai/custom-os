@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 9 early kernel baseline is active with paging enabled.
+Current status: Stage 10 early kernel baseline is active with paging enabled.
 
 Current implementation location:
 
@@ -29,6 +29,12 @@ Current capabilities:
 - Stage 8B minimal single-page VMM query/resolve/map/unmap interface.
 - Stage 8C minimal bump-style kernel heap bootstrap backed by PMM and VMM mapping.
 - Stage 8D controlled heap-allocation validation (alignment/order, mapped-end growth, heap-window bounds).
+- Stage 9A/9B/9C/9D heap lifecycle validation baseline through public API-aligned behavior.
+- Stage 10A public `kmalloc`/`kfree` wrapper interface validation.
+- Stage 10B wrapper semantics and invariants validation (`kmalloc(0)`, `kfree(NULL)`).
+- Stage 10C freestanding memory utility primitive validation (`kmemset`, `kmemcpy`, `kmemmove`, `kmemcmp`).
+- Stage 10D public API lifecycle hardening validation.
+- Stage 10E composed allocation API validation suite and cross-stage continuity validation.
 
 Not implemented yet:
 
@@ -36,5 +42,5 @@ Not implemented yet:
 - Full memory management subsystem lifecycle.
 - Filesystem and user-mode runtime.
 - Full keyboard input processing pipeline.
-- Advanced virtual memory features beyond the current Stage 8 policy/mapping/heap-bootstrap baseline.
-- Full heap allocator lifecycle beyond the current bump allocator validation (free paths, allocator strategy, kmalloc/kfree surface).
+- Advanced virtual memory features beyond the current Stage 10 validation baseline.
+- Advanced heap allocator features beyond the current Stage 10 validation baseline (new policies, allocator redesign, realloc/calloc surfaces).

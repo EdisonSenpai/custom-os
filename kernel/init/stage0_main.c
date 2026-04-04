@@ -60,6 +60,7 @@
 #define STAGE10B_FAIL_DETAIL 0x000A00B0u
 #define STAGE10C_FAIL_DETAIL 0x000A00C0u
 #define STAGE10D_FAIL_DETAIL 0x000A00D0u
+#define STAGE10E_FAIL_DETAIL 0x000A00E0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -196,6 +197,7 @@ static void stage10a_run_kmalloc_interface_self_check(void);
 static void stage10b_run_kmalloc_allocation_semantics_self_check(void);
 static void stage10c_run_kmemory_primitives_self_check(void);
 static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void);
+static void stage10e_run_allocation_api_validation_suite_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2445,6 +2447,188 @@ static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void)
     }
 }
 
+static void stage10e_run_allocation_api_validation_suite_self_check(void)
+{
+    uint32_t alloc_a = 0u;
+    uint32_t alloc_b = 0u;
+    uint32_t alloc_c = 0u;
+    uint32_t alloc_exact = 0u;
+    uint32_t alloc_split_large = 0u;
+    uint32_t alloc_split = 0u;
+    uint32_t alloc_leftover = 0u;
+    uint32_t expected_leftover = 0u;
+    void* continuity_alloc = (void*)0;
+    uint8_t memset_buffer[16];
+    uint8_t memcpy_src[16];
+    uint8_t memcpy_dst[16];
+    uint8_t move_buffer[8];
+    uint8_t expected_move[8];
+    uint32_t i = 0u;
+    int lifecycle_ok = 1;
+    int wrapper_semantics_ok = 1;
+    int memory_primitives_ok = 1;
+    int cross_stage_continuity_ok = 1;
+
+    serial_write_text("custom-os Stage 10E allocation API validation suite begin\n");
+
+    alloc_a = (uint32_t)(uintptr_t)kmalloc(48u);
+    alloc_b = (uint32_t)(uintptr_t)kmalloc(80u);
+    alloc_c = (uint32_t)(uintptr_t)kmalloc(112u);
+
+    if (alloc_a == 0u
+        || alloc_b == 0u
+        || alloc_c == 0u
+        || alloc_a >= alloc_b
+        || alloc_b >= alloc_c
+        || (alloc_a & 0x7u) != 0u
+        || (alloc_b & 0x7u) != 0u
+        || (alloc_c & 0x7u) != 0u) {
+        lifecycle_ok = 0;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_b) == 0) {
+        lifecycle_ok = 0;
+    }
+
+    alloc_exact = (uint32_t)(uintptr_t)kmalloc(80u);
+    if (alloc_exact != alloc_b) {
+        lifecycle_ok = 0;
+    }
+
+    alloc_split_large = (uint32_t)(uintptr_t)kmalloc(4096u);
+    if (alloc_split_large == 0u) {
+        lifecycle_ok = 0;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_split_large) == 0) {
+        lifecycle_ok = 0;
+    }
+
+    alloc_split = (uint32_t)(uintptr_t)kmalloc(2048u);
+    if (alloc_split != alloc_split_large) {
+        lifecycle_ok = 0;
+    }
+
+    alloc_leftover = (uint32_t)(uintptr_t)kmalloc(1800u);
+    expected_leftover = alloc_split_large + 2048u + 16u;
+    if (alloc_leftover != expected_leftover) {
+        lifecycle_ok = 0;
+    }
+
+    if (kfree((void*)(uintptr_t)(alloc_exact + 4u)) != 0) {
+        lifecycle_ok = 0;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_exact) == 0) {
+        lifecycle_ok = 0;
+    }
+
+    if (kfree((void*)(uintptr_t)alloc_exact) != 0) {
+        lifecycle_ok = 0;
+    }
+
+    if (lifecycle_ok != 0) {
+        serial_write_text("custom-os Stage 10E kmalloc/kfree lifecycle result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10E kmalloc/kfree lifecycle result: FAIL\n");
+    }
+
+    if (kmalloc(0u) != (void*)0 || kfree((void*)0) != 0) {
+        wrapper_semantics_ok = 0;
+    }
+
+    if (wrapper_semantics_ok != 0) {
+        serial_write_text("custom-os Stage 10E wrapper semantics result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10E wrapper semantics result: FAIL\n");
+    }
+
+    kmemset(memset_buffer, 0x5Au, (uint32_t)sizeof(memset_buffer));
+    i = 0u;
+    while (i < (uint32_t)sizeof(memset_buffer)) {
+        if (memset_buffer[i] != 0x5Au) {
+            memory_primitives_ok = 0;
+            break;
+        }
+
+        i++;
+    }
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(memcpy_src)) {
+        memcpy_src[i] = (uint8_t)(i + 3u);
+        memcpy_dst[i] = 0u;
+        i++;
+    }
+
+    kmemcpy(memcpy_dst, memcpy_src, (uint32_t)sizeof(memcpy_src));
+    if (kmemcmp(memcpy_src, memcpy_dst, (uint32_t)sizeof(memcpy_src)) != 0) {
+        memory_primitives_ok = 0;
+    }
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(move_buffer)) {
+        move_buffer[i] = (uint8_t)i;
+        expected_move[i] = (uint8_t)i;
+        i++;
+    }
+
+    expected_move[2] = 0u;
+    expected_move[3] = 1u;
+    expected_move[4] = 2u;
+    expected_move[5] = 3u;
+    expected_move[6] = 4u;
+    expected_move[7] = 5u;
+
+    kmemmove(&move_buffer[2], &move_buffer[0], 6u);
+
+    i = 0u;
+    while (i < (uint32_t)sizeof(move_buffer)) {
+        if (move_buffer[i] != expected_move[i]) {
+            memory_primitives_ok = 0;
+            break;
+        }
+
+        i++;
+    }
+
+    memcpy_dst[5] ^= 0x01u;
+    if (kmemcmp(memcpy_src, memcpy_dst, (uint32_t)sizeof(memcpy_src)) == 0) {
+        memory_primitives_ok = 0;
+    }
+
+    if (memory_primitives_ok != 0) {
+        serial_write_text("custom-os Stage 10E memory primitives result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10E memory primitives result: FAIL\n");
+    }
+
+    continuity_alloc = kmalloc(72u);
+    if (continuity_alloc == (void*)0 || kfree(continuity_alloc) == 0) {
+        cross_stage_continuity_ok = 0;
+    }
+
+    if (lifecycle_ok == 0 || wrapper_semantics_ok == 0 || memory_primitives_ok == 0) {
+        cross_stage_continuity_ok = 0;
+    }
+
+    if (cross_stage_continuity_ok != 0) {
+        serial_write_text("custom-os Stage 10E cross-stage continuity result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10E cross-stage continuity result: FAIL\n");
+    }
+
+    if (lifecycle_ok != 0
+        && wrapper_semantics_ok != 0
+        && memory_primitives_ok != 0
+        && cross_stage_continuity_ok != 0) {
+        serial_write_text("custom-os Stage 10E: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 10E: FAIL\n");
+        panic("Stage 10E allocation API suite failed", STAGE10E_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2746,7 +2930,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.10.4 (Stage 10D): init start\n");
+    serial_write_text("custom-os v0.10.0 (Stage 10): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2779,6 +2963,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage10b_run_kmalloc_allocation_semantics_self_check();
     stage10c_run_kmemory_primitives_self_check();
     stage10d_run_kmalloc_lifecycle_hardening_self_check();
+    stage10e_run_allocation_api_validation_suite_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

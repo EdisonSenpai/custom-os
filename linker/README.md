@@ -1,6 +1,6 @@
 # Linker Notes
 
-Current status: Stage 10A complete and still using the same linker script baseline.
+Current status: Stage 10 complete and still using the same linker script baseline.
 
 Current files:
 

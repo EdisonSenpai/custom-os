@@ -29,12 +29,13 @@
 - stage-10b.md: complete, wrapper-level allocation semantics and invariants (`kmalloc(0)`, `kfree(NULL)`, valid alloc/free, invalid-free rejection) validated in QEMU with deterministic Stage 10B PASS markers.
 - stage-10c.md: complete, freestanding memory primitive layer (`kmemset`, `kmemcpy`, overlap-safe `kmemmove`, `kmemcmp`) validated in QEMU with deterministic Stage 10C PASS markers.
 - stage-10d.md: complete, validation-only kmalloc/kfree lifecycle hardening checks via public API (alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection) validated in QEMU with deterministic Stage 10D PASS markers.
+- stage-10e.md: complete, final deterministic allocation API validation suite over public `kmalloc`/`kfree` and memory primitives with Stage 10E PASS markers.
 
-Current focus: Stage 10 is split and active. Stage 10A, Stage 10B, Stage 10C, and Stage 10D are complete. Stage 10E is not started.
+Current focus: Stage 10 is complete (10A through 10E) and verified. Stage 11 is not started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
 Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, so full Stage 7 is complete.
 Stage 8 is split into 8A, 8B, 8C, and 8D. All Stage 8 sub-stages are complete, so full Stage 8 is complete.
 Stage 9 is split into 9A, 9B, 9C, and 9D. All Stage 9 sub-stages are complete, so full Stage 9 is complete.
-Stage 10 is split into 10A, 10B, 10C, 10D, and 10E. Stage 10A, Stage 10B, Stage 10C, and Stage 10D are complete. Stage 10E is not started.
+Stage 10 is split into 10A, 10B, 10C, 10D, and 10E. All Stage 10 sub-stages are complete, so full Stage 10 is complete.
