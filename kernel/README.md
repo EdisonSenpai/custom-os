@@ -1,6 +1,6 @@
 # Kernel Notes
 
-Current status: Stage 10 early kernel baseline is active with paging enabled.
+Current status: Stage 11 complete kernel baseline is active with paging enabled.
 
 Current implementation location:
 
@@ -35,6 +35,11 @@ Current capabilities:
 - Stage 10C freestanding memory utility primitive validation (`kmemset`, `kmemcpy`, `kmemmove`, `kmemcmp`).
 - Stage 10D public API lifecycle hardening validation.
 - Stage 10E composed allocation API validation suite and cross-stage continuity validation.
+- Stage 11A dynamic kernel object groundwork validation.
+- Stage 11B linked structure construction validation.
+- Stage 11C traversal and lookup validation.
+- Stage 11D removal and cleanup validation.
+- Stage 11E composed object lifecycle validation suite.
 
 Not implemented yet:
 
@@ -42,5 +47,5 @@ Not implemented yet:
 - Full memory management subsystem lifecycle.
 - Filesystem and user-mode runtime.
 - Full keyboard input processing pipeline.
-- Advanced virtual memory features beyond the current Stage 10 validation baseline.
-- Advanced heap allocator features beyond the current Stage 10 validation baseline (new policies, allocator redesign, realloc/calloc surfaces).
+- Advanced virtual memory features beyond the current Stage 11 validation baseline.
+- Advanced heap allocator and object-management features beyond the current Stage 11 validation baseline.

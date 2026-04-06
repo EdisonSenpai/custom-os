@@ -1,6 +1,6 @@
 # Boot Notes
 
-Current status: Stage 10 complete (10A through 10E) and still using the same minimal GRUB plus Multiboot2 boot path.
+Current status: Stage 11 complete (11A through 11E) and still using the same minimal GRUB plus Multiboot2 boot path.
 
 Current responsibilities:
 

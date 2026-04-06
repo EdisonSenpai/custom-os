@@ -1,10 +1,10 @@
 # CustomOS (working title: AnimeOS)
 
-> Current status: Stage 10 complete (10A + 10B + 10C + 10D + 10E) and verified in QEMU. Stage 11 not started.
+> Current status: Stage 11 complete (11A + 11B + 11C + 11D + 11E) and verified in QEMU. Stage 12 not started.
 
-CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 10 complete with active paging plus validated public allocation API behavior and memory utility primitives on top of the Stage 6 PMM lifecycle baseline.
+CustomOS is a from-scratch operating system project focused on low-level correctness, inspectability, and disciplined incremental bring-up. The long-term direction is an anime-themed experimental OS identity built on top of a technically rigorous kernel foundation. The current baseline is Stage 11 complete with active paging plus validated object lifecycle behavior over the Stage 10 public allocation API baseline.
 
-## Architecture snapshot (Stage 10)
+## Architecture snapshot (Stage 11)
 
 - 32-bit protected mode (Multiboot2 entry)
 - Paging enabled (CR3 loaded and CR0.PG set)
@@ -26,9 +26,10 @@ CustomOS is a from-scratch operating system project focused on low-level correct
 - Stage 8D validation checks confirm controlled allocation behavior without allocator redesign
 - Stage 9A/9B/9C/9D heap lifecycle validation baseline remains active
 - Stage 10A/10B/10C/10D/10E public allocation API validation baseline remains active
+- Stage 11A/11B/11C/11D/11E object lifecycle validation baseline remains active
 - Stage 6 timer and keyboard runtime behavior remains active under paging
 
-## Current baseline (Stage 10)
+## Current baseline (Stage 11)
 
 Implemented and verified:
 
@@ -71,8 +72,13 @@ Implemented and verified:
 - Stage 10C: memory utility primitive validation (`kmemset`, `kmemcpy`, `kmemmove`, `kmemcmp`).
 - Stage 10D: public API lifecycle hardening validation.
 - Stage 10E: final composed allocation API validation suite.
+- Stage 11A: dynamic kernel object groundwork (`kobject_node` create/destroy).
+- Stage 11B: linked structure construction (`kobject_list` init/append).
+- Stage 11C: traversal and lookup (`kobject_list_find_by_id`, `kobject_list_count`).
+- Stage 11D: removal and cleanup (`kobject_list_remove_by_id`).
+- Stage 11E: composed object lifecycle validation suite.
 
-## Stage 10 highlights
+## Stage 10 and Stage 11 highlights
 
 - Stage 4 interrupt runtime behavior remains active after Stage 6 PMM lifecycle bring-up.
 - Stage 5A and 5B provide safe parsing and accounting summaries from Multiboot2 data.
@@ -85,6 +91,7 @@ Implemented and verified:
 - Stage 8D finalizes Stage 8 with deterministic heap growth and bounds validation under active paging.
 - Stage 9D finalizes Stage 9 with deterministic heap lifecycle validation over Stage 9A/9B/9C behavior.
 - Stage 10A through Stage 10E finalize the public allocation API surface with deterministic composed validation and no allocator redesign.
+- Stage 11A through Stage 11E finalize deterministic object lifecycle behavior over Stage 10 public API primitives.
 
 ## Scope boundaries
 
@@ -98,12 +105,14 @@ Implemented now:
 - Minimal VMM policy/mapping and controlled heap bootstrap through Stage 8A to Stage 8D.
 - Heap lifecycle validation baseline through Stage 9A to Stage 9D.
 - Public allocation API validation suite through Stage 10A to Stage 10E.
+- Object lifecycle validation suite through Stage 11A to Stage 11E.
 
 Deliberately not implemented yet:
 
 - Advanced frame lifecycle features beyond current deterministic minimal PMM model.
 - Advanced virtual memory work beyond the current static first-4 MiB identity-mapped paging baseline.
-- Advanced heap allocator capabilities beyond current Stage 10 validation baseline (coalescing policy expansion, advanced fit strategies, realloc or calloc, slab or buddy design).
+- Advanced heap allocator capabilities beyond current Stage 11 validation baseline (coalescing policy expansion, advanced fit strategies, realloc or calloc, slab or buddy design).
+- Advanced object management features beyond current Stage 11 validation baseline (reference counting, richer container models, policy layers).
 - Scheduler and task switching.
 - Filesystem and user-mode runtime.
 - Full x86_64 long-mode runtime.
@@ -114,7 +123,7 @@ Deliberately not implemented yet:
 - boot/grub/: GRUB configuration for bootable image generation.
 - arch/x86_64/: architecture-specific entry and interrupt/exception assembly stubs.
 - linker/: linker script and memory layout contract.
-- kernel/init/: staged early init and self-check flow through Stage 10 diagnostics.
+- kernel/init/: staged early init and self-check flow through Stage 11 diagnostics.
 - build/: shared Make configuration and build targets.
 - scripts/: QEMU run wrappers for shell and PowerShell workflows.
 
@@ -137,16 +146,17 @@ make iso
 
 ## Expected output
 
-### Normal Stage 10 run
+### Normal Stage 11 run
 
 VGA and COM1 serial should show:
 
-- custom-os v0.10.5 (Stage 10E): init start
+- custom-os v0.11.5 (Stage 11E): init start
 - custom-os Stage 5A/B/C/D summary markers
 - custom-os Stage 7A/7B/7C/7D markers
 - custom-os Stage 8A/8B/8C/8D markers
 - custom-os Stage 9A/9B/9C/9D markers
 - custom-os Stage 10A/10B/10C/10D/10E markers
+- custom-os Stage 11A/11B/11C/11D/11E markers
 - custom-os Stage 6: Multiboot2 handoff OK
 - custom-os Stage 6: IDT installed
 - custom-os Stage 6: PIC remapped + PIT started
@@ -212,9 +222,9 @@ Expected panic output (VGA and serial):
 
 ## Future direction
 
-- Keep the Stage 10 complete baseline stable under routine validation.
+- Keep the Stage 11 complete baseline stable under routine validation.
 - Preserve Stage 6 runtime behavior while paging is active.
-- Stage 11 is not started.
+- Stage 12 is not started.
 
 ## Key docs
 
@@ -252,3 +262,8 @@ Expected panic output (VGA and serial):
 - docs/milestones/stage-10c.md
 - docs/milestones/stage-10d.md
 - docs/milestones/stage-10e.md
+- docs/milestones/stage-11a.md
+- docs/milestones/stage-11b.md
+- docs/milestones/stage-11c.md
+- docs/milestones/stage-11d.md
+- docs/milestones/stage-11e.md
