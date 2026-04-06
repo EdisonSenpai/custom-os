@@ -63,6 +63,7 @@
 #define STAGE10D_FAIL_DETAIL 0x000A00D0u
 #define STAGE10E_FAIL_DETAIL 0x000A00E0u
 #define STAGE11A_FAIL_DETAIL 0x000B00A0u
+#define STAGE11B_FAIL_DETAIL 0x000B00B0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -201,6 +202,7 @@ static void stage10c_run_kmemory_primitives_self_check(void);
 static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void);
 static void stage10e_run_allocation_api_validation_suite_self_check(void);
 static void stage11a_run_kobject_groundwork_self_check(void);
+static void stage11b_run_kobject_linked_structure_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2680,6 +2682,96 @@ static void stage11a_run_kobject_groundwork_self_check(void)
     }
 }
 
+static void stage11b_run_kobject_linked_structure_self_check(void)
+{
+    struct kobject_list list;
+    struct kobject_node* node1 = (struct kobject_node*)0;
+    struct kobject_node* node2 = (struct kobject_node*)0;
+    int init_ok = 0;
+    int first_append_ok = 0;
+    int second_append_ok = 0;
+    int linkage_ok = 0;
+    int cleanup_ok = 1;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 11B linked structure validation begin\n");
+
+    kobject_list_init(&list);
+    init_ok = (list.head == (struct kobject_node*)0
+               && list.tail == (struct kobject_node*)0
+               && list.count == 0u);
+
+    if (init_ok != 0) {
+        serial_write_text("custom-os Stage 11B init result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B init result: FAIL\n");
+        passed = 0u;
+    }
+
+    node1 = kobject_node_create(0x11B00001u, 0x00001001u);
+    first_append_ok = (kobject_list_append(&list, node1) != 0
+                       && list.head == node1
+                       && list.tail == node1
+                       && list.count == 1u
+                       && node1 != (struct kobject_node*)0
+                       && node1->next == (struct kobject_node*)0);
+
+    if (first_append_ok != 0) {
+        serial_write_text("custom-os Stage 11B first append result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B first append result: FAIL\n");
+        passed = 0u;
+    }
+
+    node2 = kobject_node_create(0x11B00002u, 0x00001002u);
+    second_append_ok = (kobject_list_append(&list, node2) != 0
+                        && list.head == node1
+                        && list.tail == node2
+                        && list.count == 2u
+                        && node2 != (struct kobject_node*)0
+                        && node2->next == (struct kobject_node*)0);
+
+    if (second_append_ok != 0) {
+        serial_write_text("custom-os Stage 11B second append result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B second append result: FAIL\n");
+        passed = 0u;
+    }
+
+    linkage_ok = (node1 != (struct kobject_node*)0
+                  && node2 != (struct kobject_node*)0
+                  && node1->next == node2);
+
+    if (linkage_ok != 0) {
+        serial_write_text("custom-os Stage 11B linkage result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B linkage result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (node2 != (struct kobject_node*)0 && kobject_node_destroy(node2) == 0) {
+        cleanup_ok = 0;
+    }
+
+    if (node1 != (struct kobject_node*)0 && kobject_node_destroy(node1) == 0) {
+        cleanup_ok = 0;
+    }
+
+    if (cleanup_ok != 0) {
+        serial_write_text("custom-os Stage 11B cleanup result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B cleanup result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 11B: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11B: FAIL\n");
+        panic("Stage 11B linked structure validation failed", STAGE11B_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2981,7 +3073,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.11.1 (Stage 11A): init start\n");
+    serial_write_text("custom-os v0.11.2 (Stage 11B): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -3016,6 +3108,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage10d_run_kmalloc_lifecycle_hardening_self_check();
     stage10e_run_allocation_api_validation_suite_self_check();
     stage11a_run_kobject_groundwork_self_check();
+    stage11b_run_kobject_linked_structure_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

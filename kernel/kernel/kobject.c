@@ -25,3 +25,42 @@ int kobject_node_destroy(struct kobject_node* node)
 
     return kfree((void*)node);
 }
+
+void kobject_list_init(struct kobject_list* list)
+{
+    if (list == (struct kobject_list*)0) {
+        return;
+    }
+
+    list->head = (struct kobject_node*)0;
+    list->tail = (struct kobject_node*)0;
+    list->count = 0u;
+}
+
+int kobject_list_append(struct kobject_list* list, struct kobject_node* node)
+{
+    if (list == (struct kobject_list*)0 || node == (struct kobject_node*)0) {
+        return 0;
+    }
+
+    if (node->next != (struct kobject_node*)0) {
+        return 0;
+    }
+
+    if (list->head == (struct kobject_node*)0) {
+        list->head = node;
+        list->tail = node;
+        list->count = 1u;
+        return 1;
+    }
+
+    if (list->tail == (struct kobject_node*)0) {
+        return 0;
+    }
+
+    list->tail->next = node;
+    list->tail = node;
+    list->count++;
+
+    return 1;
+}

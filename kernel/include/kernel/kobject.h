@@ -11,8 +11,16 @@ struct kobject_node {
     struct kobject_node* next;
 };
 
+struct kobject_list {
+    struct kobject_node* head;
+    struct kobject_node* tail;
+    uint32_t count;
+};
+
 struct kobject_node* kobject_node_create(uint32_t id, uint32_t value);
 int kobject_node_destroy(struct kobject_node* node);
+void kobject_list_init(struct kobject_list* list);
+int kobject_list_append(struct kobject_list* list, struct kobject_node* node);
 
 #endif
 

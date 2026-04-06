@@ -50,13 +50,14 @@ Purpose: one-page status view for solo progress.
 | Stage 10E - allocation API validation suite | complete | 2026-04-04 | Add final deterministic validation suite over full public memory interface (`kmalloc`/`kfree` and `kmemory` primitives), confirming wrapper semantics and composed lifecycle behavior without allocator redesign | QEMU validation: Stage 10E markers passed for allocation API suite begin, kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, and final Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 outputs remained intact and Stage 6 tick/scancode runtime continued |
 | Stage 10 - kmalloc and allocator hardening suite (10A-10E) | complete | 2026-04-04 | Stage 10A through Stage 10E are complete and verified with deterministic public API validation and no allocator redesign | Stage 10A/10B/10C/10D/10E evidence captured |
 | Stage 11A - kernel object groundwork | complete | 2026-04-06 | Add minimal kernel object baseline (`kobject_node`) with deterministic create/destroy over Stage 10 public allocation API (`kmalloc`/`kfree`) and Stage 11A self-check markers | QEMU validation: Stage 11A markers passed for groundwork begin, object alloc result (non-NULL), field init PASS, next-null PASS, object free PASS, and final Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
+| Stage 11B - linked structure construction | complete | 2026-04-06 | Add minimal linked kernel structure baseline (`kobject_list`) with deterministic init/append behavior over Stage 11A `kobject_node`, including head/tail/count invariant checks and deterministic Stage 11B markers | QEMU validation: Stage 11B markers passed for validation begin, init PASS, first append PASS, second append PASS, linkage PASS, cleanup PASS, and final Stage 11B PASS; Stage 11A and Stage 10A/10B/10C/10D/10E plus Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 11A is complete and verified in QEMU. Stage 11B is not started.
+- Current focus: Stage 11B is complete and verified in QEMU. Stage 11C is not started.
 
 ## Weekly update template
 
@@ -94,6 +95,7 @@ Purpose: one-page status view for solo progress.
   - Stage 10D public API lifecycle hardening validation completed and validated in QEMU (alloc A/B/C emitted, alignment/ordering PASS, exact-size reuse PASS, split-reuse PASS, leftover-fragment PASS, invalid free rejection PASS, double free rejection PASS, Stage 10D PASS; Stage 10A/10B/10C and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 10E allocation API validation suite completed and validated in QEMU (kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 11A kernel object groundwork completed and validated in QEMU (object alloc result non-NULL, field init PASS, next-null PASS, object free PASS, Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D output intact, Stage 6 runtime intact)
+  - Stage 11B linked structure construction completed and validated in QEMU (init PASS, first append PASS, second append PASS, linkage PASS, cleanup PASS, Stage 11B PASS; Stage 11A and Stage 10A/10B/10C/10D/10E plus Stage 9D/8D/7D output intact, Stage 6 runtime intact)
 
 - Blockers:
   - None
@@ -104,7 +106,7 @@ Purpose: one-page status view for solo progress.
   - Keep Stage 8 baseline stable under routine boot/runtime checks
   - Keep Stage 9 baseline stable under routine validation
   - Keep Stage 10 complete baseline (10A through 10E) stable under routine validation
-  - Keep Stage 11A baseline stable under routine validation while Stage 11B remains not started
+  - Keep Stage 11A and Stage 11B baselines stable under routine validation while Stage 11C remains not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -128,3 +130,4 @@ Purpose: one-page status view for solo progress.
   - Stage 10D adds validation-only public API lifecycle hardening checks (alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection); no allocator redesign and no Stage 10E behavior
   - Stage 10E adds validation-only composed public API suite checks across lifecycle, wrapper semantics, and memory primitives; no allocator redesign and no Stage 11 behavior
   - Stage 11A adds minimal object create/destroy validation over existing public allocation API only; no object registry/container/reference model and no Stage 11B behavior
+  - Stage 11B adds minimal linked-list init/append behavior and invariant validation over Stage 11A nodes only; no lookup/removal API and no Stage 11C behavior
