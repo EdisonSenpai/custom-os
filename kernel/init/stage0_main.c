@@ -64,6 +64,7 @@
 #define STAGE10E_FAIL_DETAIL 0x000A00E0u
 #define STAGE11A_FAIL_DETAIL 0x000B00A0u
 #define STAGE11B_FAIL_DETAIL 0x000B00B0u
+#define STAGE11C_FAIL_DETAIL 0x000B00C0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -203,6 +204,7 @@ static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void);
 static void stage10e_run_allocation_api_validation_suite_self_check(void);
 static void stage11a_run_kobject_groundwork_self_check(void);
 static void stage11b_run_kobject_linked_structure_self_check(void);
+static void stage11c_run_kobject_traversal_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2772,6 +2774,88 @@ static void stage11b_run_kobject_linked_structure_self_check(void)
     }
 }
 
+static void stage11c_run_kobject_traversal_self_check(void)
+{
+    struct kobject_list list;
+    struct kobject_node* node1 = (struct kobject_node*)0;
+    struct kobject_node* node2 = (struct kobject_node*)0;
+    struct kobject_node* found = (struct kobject_node*)0;
+    int find_first_ok = 0;
+    int find_second_ok = 0;
+    int find_missing_ok = 0;
+    int count_ok = 0;
+    int cleanup_ok = 1;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 11C list traversal validation begin\n");
+
+    kobject_list_init(&list);
+
+    node1 = kobject_node_create(0x11C00001u, 0x00002001u);
+    node2 = kobject_node_create(0x11C00002u, 0x00002002u);
+
+    if (kobject_list_append(&list, node1) == 0 || kobject_list_append(&list, node2) == 0) {
+        passed = 0u;
+    }
+
+    found = kobject_list_find_by_id(&list, 0x11C00001u);
+    find_first_ok = (found == node1);
+    if (find_first_ok != 0) {
+        serial_write_text("custom-os Stage 11C find first result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C find first result: FAIL\n");
+        passed = 0u;
+    }
+
+    found = kobject_list_find_by_id(&list, 0x11C00002u);
+    find_second_ok = (found == node2);
+    if (find_second_ok != 0) {
+        serial_write_text("custom-os Stage 11C find second result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C find second result: FAIL\n");
+        passed = 0u;
+    }
+
+    found = kobject_list_find_by_id(&list, 0x11C0FFFFu);
+    find_missing_ok = (found == (struct kobject_node*)0);
+    if (find_missing_ok != 0) {
+        serial_write_text("custom-os Stage 11C find missing result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C find missing result: FAIL\n");
+        passed = 0u;
+    }
+
+    count_ok = (kobject_list_count(&list) == 2u);
+    if (count_ok != 0) {
+        serial_write_text("custom-os Stage 11C count result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C count result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (node2 != (struct kobject_node*)0 && kobject_node_destroy(node2) == 0) {
+        cleanup_ok = 0;
+    }
+
+    if (node1 != (struct kobject_node*)0 && kobject_node_destroy(node1) == 0) {
+        cleanup_ok = 0;
+    }
+
+    if (cleanup_ok != 0) {
+        serial_write_text("custom-os Stage 11C cleanup result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C cleanup result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 11C: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11C: FAIL\n");
+        panic("Stage 11C list traversal validation failed", STAGE11C_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -3073,7 +3157,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.11.2 (Stage 11B): init start\n");
+    serial_write_text("custom-os v0.11.3 (Stage 11C): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -3109,6 +3193,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage10e_run_allocation_api_validation_suite_self_check();
     stage11a_run_kobject_groundwork_self_check();
     stage11b_run_kobject_linked_structure_self_check();
+    stage11c_run_kobject_traversal_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

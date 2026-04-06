@@ -32,8 +32,9 @@
 - stage-10e.md: complete, final deterministic allocation API validation suite over public `kmalloc`/`kfree` and memory primitives with Stage 10E PASS markers.
 - stage-11a.md: complete, minimal kernel object groundwork (`kobject_node` create/destroy via public allocation API) validated in QEMU with deterministic Stage 11A PASS markers.
 - stage-11b.md: complete, minimal linked kernel structure (`kobject_list` init/append over `kobject_node`) validated in QEMU with deterministic Stage 11B PASS markers.
+- stage-11c.md: complete, deterministic kobject list traversal and lookup (`kobject_list_find_by_id` and `kobject_list_count`) validated in QEMU with deterministic Stage 11C PASS markers.
 
-Current focus: Stage 11B is complete and verified. Stage 11C is not started.
+Current focus: Stage 11C is complete and verified. Stage 11D is not started.
 
 Stage 5 is split into 5A, 5B, 5C, and 5D. All Stage 5 sub-stages are complete, so full Stage 5 is complete.
 Stage 6 is split into 6A, 6B, 6C, and 6D. All Stage 6 sub-stages are complete and validated.
@@ -41,4 +42,4 @@ Stage 7 is split into 7A, 7B, 7C, and 7D. All Stage 7 sub-stages are complete, s
 Stage 8 is split into 8A, 8B, 8C, and 8D. All Stage 8 sub-stages are complete, so full Stage 8 is complete.
 Stage 9 is split into 9A, 9B, 9C, and 9D. All Stage 9 sub-stages are complete, so full Stage 9 is complete.
 Stage 10 is split into 10A, 10B, 10C, 10D, and 10E. All Stage 10 sub-stages are complete, so full Stage 10 is complete.
-Stage 11 is split into sub-stages. Stage 11A and Stage 11B are complete, and Stage 11C is not started.
+Stage 11 is split into sub-stages. Stage 11A, Stage 11B, and Stage 11C are complete, and Stage 11D is not started.

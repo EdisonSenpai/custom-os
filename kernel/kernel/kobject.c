@@ -64,3 +64,33 @@ int kobject_list_append(struct kobject_list* list, struct kobject_node* node)
 
     return 1;
 }
+
+struct kobject_node* kobject_list_find_by_id(const struct kobject_list* list, uint32_t id)
+{
+    struct kobject_node* cursor = (struct kobject_node*)0;
+
+    if (list == (const struct kobject_list*)0) {
+        return (struct kobject_node*)0;
+    }
+
+    cursor = list->head;
+
+    while (cursor != (struct kobject_node*)0) {
+        if (cursor->id == id) {
+            return cursor;
+        }
+
+        cursor = cursor->next;
+    }
+
+    return (struct kobject_node*)0;
+}
+
+uint32_t kobject_list_count(const struct kobject_list* list)
+{
+    if (list == (const struct kobject_list*)0) {
+        return 0u;
+    }
+
+    return list->count;
+}

@@ -51,13 +51,14 @@ Purpose: one-page status view for solo progress.
 | Stage 10 - kmalloc and allocator hardening suite (10A-10E) | complete | 2026-04-04 | Stage 10A through Stage 10E are complete and verified with deterministic public API validation and no allocator redesign | Stage 10A/10B/10C/10D/10E evidence captured |
 | Stage 11A - kernel object groundwork | complete | 2026-04-06 | Add minimal kernel object baseline (`kobject_node`) with deterministic create/destroy over Stage 10 public allocation API (`kmalloc`/`kfree`) and Stage 11A self-check markers | QEMU validation: Stage 11A markers passed for groundwork begin, object alloc result (non-NULL), field init PASS, next-null PASS, object free PASS, and final Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
 | Stage 11B - linked structure construction | complete | 2026-04-06 | Add minimal linked kernel structure baseline (`kobject_list`) with deterministic init/append behavior over Stage 11A `kobject_node`, including head/tail/count invariant checks and deterministic Stage 11B markers | QEMU validation: Stage 11B markers passed for validation begin, init PASS, first append PASS, second append PASS, linkage PASS, cleanup PASS, and final Stage 11B PASS; Stage 11A and Stage 10A/10B/10C/10D/10E plus Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
+| Stage 11C - Kobject Traversal & Lookup | COMPLETE | 2026-04-06 | traversal + lookup + validation PASS | Stage 11C markers passed for traversal validation begin, find first PASS, find second PASS, find missing PASS, count PASS, cleanup PASS, and final Stage 11C PASS |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 11B is complete and verified in QEMU. Stage 11C is not started.
+- Current focus: Stage 11C is complete and verified in QEMU. Stage 11D is not started.
 
 ## Weekly update template
 
