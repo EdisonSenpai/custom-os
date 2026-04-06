@@ -65,6 +65,7 @@
 #define STAGE11A_FAIL_DETAIL 0x000B00A0u
 #define STAGE11B_FAIL_DETAIL 0x000B00B0u
 #define STAGE11C_FAIL_DETAIL 0x000B00C0u
+#define STAGE11D_FAIL_DETAIL 0x000B00D0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -205,6 +206,7 @@ static void stage10e_run_allocation_api_validation_suite_self_check(void);
 static void stage11a_run_kobject_groundwork_self_check(void);
 static void stage11b_run_kobject_linked_structure_self_check(void);
 static void stage11c_run_kobject_traversal_self_check(void);
+static void stage11d_run_kobject_removal_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2856,6 +2858,118 @@ static void stage11c_run_kobject_traversal_self_check(void)
     }
 }
 
+static void stage11d_run_kobject_removal_self_check(void)
+{
+    struct kobject_list list;
+    struct kobject_node* node1 = (struct kobject_node*)0;
+    struct kobject_node* node2 = (struct kobject_node*)0;
+    struct kobject_node* node3 = (struct kobject_node*)0;
+    struct kobject_node* node4 = (struct kobject_node*)0;
+    int remove_head_ok = 0;
+    int remove_middle_ok = 0;
+    int remove_tail_ok = 0;
+    int integrity_ok = 0;
+    int empty_state_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 11D list removal validation begin\n");
+
+    kobject_list_init(&list);
+
+    node1 = kobject_node_create(0x11D00001u, 0x00003001u);
+    node2 = kobject_node_create(0x11D00002u, 0x00003002u);
+    node3 = kobject_node_create(0x11D00003u, 0x00003003u);
+    node4 = kobject_node_create(0x11D00004u, 0x00003004u);
+
+    if (kobject_list_append(&list, node1) == 0
+        || kobject_list_append(&list, node2) == 0
+        || kobject_list_append(&list, node3) == 0
+        || kobject_list_append(&list, node4) == 0) {
+        passed = 0u;
+    }
+
+    remove_head_ok = (kobject_list_remove_by_id(&list, 0x11D00001u) != 0
+                      && kobject_node_destroy(node1) != 0
+                      && list.head == node2
+                      && list.tail == node4
+                      && list.count == 3u);
+
+    if (remove_head_ok != 0) {
+        serial_write_text("custom-os Stage 11D remove head result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D remove head result: FAIL\n");
+        passed = 0u;
+    }
+
+    remove_middle_ok = (kobject_list_remove_by_id(&list, 0x11D00003u) != 0
+                        && kobject_node_destroy(node3) != 0
+                        && list.head == node2
+                        && list.tail == node4
+                        && list.count == 2u
+                        && node2 != (struct kobject_node*)0
+                        && node2->next == node4);
+
+    if (remove_middle_ok != 0) {
+        serial_write_text("custom-os Stage 11D remove middle result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D remove middle result: FAIL\n");
+        passed = 0u;
+    }
+
+    remove_tail_ok = (kobject_list_remove_by_id(&list, 0x11D00004u) != 0
+                      && kobject_node_destroy(node4) != 0
+                      && list.head == node2
+                      && list.tail == node2
+                      && list.count == 1u
+                      && node2 != (struct kobject_node*)0
+                      && node2->next == (struct kobject_node*)0);
+
+    if (remove_tail_ok != 0) {
+        serial_write_text("custom-os Stage 11D remove tail result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D remove tail result: FAIL\n");
+        passed = 0u;
+    }
+
+    integrity_ok = (kobject_list_find_by_id(&list, 0x11D00001u) == (struct kobject_node*)0
+                    && kobject_list_find_by_id(&list, 0x11D00003u) == (struct kobject_node*)0
+                    && kobject_list_find_by_id(&list, 0x11D00004u) == (struct kobject_node*)0
+                    && kobject_list_find_by_id(&list, 0x11D00002u) == node2
+                    && kobject_list_count(&list) == 1u
+                    && list.head == node2
+                    && list.tail == node2);
+
+    if (integrity_ok != 0) {
+        serial_write_text("custom-os Stage 11D integrity result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D integrity result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (kobject_list_remove_by_id(&list, 0x11D00002u) == 0 || kobject_node_destroy(node2) == 0) {
+        passed = 0u;
+    }
+
+    empty_state_ok = (kobject_list_count(&list) == 0u
+                      && list.head == (struct kobject_node*)0
+                      && list.tail == (struct kobject_node*)0
+                      && kobject_list_find_by_id(&list, 0x11D00002u) == (struct kobject_node*)0);
+
+    if (empty_state_ok != 0) {
+        serial_write_text("custom-os Stage 11D empty-state result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D empty-state result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 11D: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11D: FAIL\n");
+        panic("Stage 11D list removal validation failed", STAGE11D_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -3157,7 +3271,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.11.3 (Stage 11C): init start\n");
+    serial_write_text("custom-os v0.11.4 (Stage 11D): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -3194,6 +3308,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage11a_run_kobject_groundwork_self_check();
     stage11b_run_kobject_linked_structure_self_check();
     stage11c_run_kobject_traversal_self_check();
+    stage11d_run_kobject_removal_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

@@ -51,14 +51,15 @@ Purpose: one-page status view for solo progress.
 | Stage 10 - kmalloc and allocator hardening suite (10A-10E) | complete | 2026-04-04 | Stage 10A through Stage 10E are complete and verified with deterministic public API validation and no allocator redesign | Stage 10A/10B/10C/10D/10E evidence captured |
 | Stage 11A - kernel object groundwork | complete | 2026-04-06 | Add minimal kernel object baseline (`kobject_node`) with deterministic create/destroy over Stage 10 public allocation API (`kmalloc`/`kfree`) and Stage 11A self-check markers | QEMU validation: Stage 11A markers passed for groundwork begin, object alloc result (non-NULL), field init PASS, next-null PASS, object free PASS, and final Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
 | Stage 11B - linked structure construction | complete | 2026-04-06 | Add minimal linked kernel structure baseline (`kobject_list`) with deterministic init/append behavior over Stage 11A `kobject_node`, including head/tail/count invariant checks and deterministic Stage 11B markers | QEMU validation: Stage 11B markers passed for validation begin, init PASS, first append PASS, second append PASS, linkage PASS, cleanup PASS, and final Stage 11B PASS; Stage 11A and Stage 10A/10B/10C/10D/10E plus Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
-| Stage 11C - Kobject Traversal & Lookup | COMPLETE | 2026-04-06 | traversal + lookup + validation PASS | Stage 11C markers passed for traversal validation begin, find first PASS, find second PASS, find missing PASS, count PASS, cleanup PASS, and final Stage 11C PASS |
+| Stage 11C - Kobject Traversal & Lookup | complete | 2026-04-06 | traversal + lookup + validation PASS | Stage 11C markers passed for traversal validation begin, find first PASS, find second PASS, find missing PASS, count PASS, cleanup PASS, and final Stage 11C PASS |
+| Stage 11D - Kobject Removal & Cleanup | complete | 2026-04-06 | deterministic removal + integrity + empty-state validation PASS | Stage 11D markers passed for list removal validation begin, remove head PASS, remove middle PASS, remove tail PASS, integrity PASS, empty-state PASS, and final Stage 11D PASS |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 11C is complete and verified in QEMU. Stage 11D is not started.
+- Current focus: Stage 11D is complete and verified in QEMU. Stage 11E is not started.
 
 ## Weekly update template
 
@@ -97,6 +98,8 @@ Purpose: one-page status view for solo progress.
   - Stage 10E allocation API validation suite completed and validated in QEMU (kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 11A kernel object groundwork completed and validated in QEMU (object alloc result non-NULL, field init PASS, next-null PASS, object free PASS, Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D output intact, Stage 6 runtime intact)
   - Stage 11B linked structure construction completed and validated in QEMU (init PASS, first append PASS, second append PASS, linkage PASS, cleanup PASS, Stage 11B PASS; Stage 11A and Stage 10A/10B/10C/10D/10E plus Stage 9D/8D/7D output intact, Stage 6 runtime intact)
+  - Stage 11C traversal and lookup completed and validated in QEMU (find first PASS, find second PASS, find missing PASS, count PASS, cleanup PASS, Stage 11C PASS; Stage 11A/11B and Stage 10/9/8/7 outputs intact, Stage 6 runtime intact)
+  - Stage 11D removal and cleanup completed and validated in QEMU (remove head PASS, remove middle PASS, remove tail PASS, integrity PASS, empty-state PASS, Stage 11D PASS; Stage 11C/11B/11A and Stage 10/9/8/7 outputs intact, Stage 6 tick/scancode runtime intact)
 
 - Blockers:
   - None
@@ -107,7 +110,7 @@ Purpose: one-page status view for solo progress.
   - Keep Stage 8 baseline stable under routine boot/runtime checks
   - Keep Stage 9 baseline stable under routine validation
   - Keep Stage 10 complete baseline (10A through 10E) stable under routine validation
-  - Keep Stage 11A and Stage 11B baselines stable under routine validation while Stage 11C remains not started
+  - Keep Stage 11A through Stage 11D baselines stable under routine validation while Stage 11E remains not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -132,3 +135,5 @@ Purpose: one-page status view for solo progress.
   - Stage 10E adds validation-only composed public API suite checks across lifecycle, wrapper semantics, and memory primitives; no allocator redesign and no Stage 11 behavior
   - Stage 11A adds minimal object create/destroy validation over existing public allocation API only; no object registry/container/reference model and no Stage 11B behavior
   - Stage 11B adds minimal linked-list init/append behavior and invariant validation over Stage 11A nodes only; no lookup/removal API and no Stage 11C behavior
+  - Stage 11C adds deterministic list traversal and lookup validation over Stage 11B structure; no removal API in Stage 11C scope and no Stage 11D behavior
+  - Stage 11D adds deterministic list removal/cleanup validation (head/middle/tail, integrity, empty-state); no Stage 11E lifecycle-suite behavior

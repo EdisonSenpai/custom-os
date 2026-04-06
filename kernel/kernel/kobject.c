@@ -94,3 +94,47 @@ uint32_t kobject_list_count(const struct kobject_list* list)
 
     return list->count;
 }
+
+int kobject_list_remove_by_id(struct kobject_list* list, uint32_t id)
+{
+    struct kobject_node* prev = (struct kobject_node*)0;
+    struct kobject_node* cursor = (struct kobject_node*)0;
+
+    if (list == (struct kobject_list*)0) {
+        return 0;
+    }
+
+    cursor = list->head;
+
+    while (cursor != (struct kobject_node*)0) {
+        if (cursor->id == id) {
+            if (prev == (struct kobject_node*)0) {
+                list->head = cursor->next;
+            } else {
+                prev->next = cursor->next;
+            }
+
+            if (list->tail == cursor) {
+                list->tail = prev;
+            }
+
+            cursor->next = (struct kobject_node*)0;
+
+            if (list->count > 0u) {
+                list->count--;
+            }
+
+            if (list->count == 0u) {
+                list->head = (struct kobject_node*)0;
+                list->tail = (struct kobject_node*)0;
+            }
+
+            return 1;
+        }
+
+        prev = cursor;
+        cursor = cursor->next;
+    }
+
+    return 0;
+}

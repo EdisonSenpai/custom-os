@@ -23,6 +23,7 @@ void kobject_list_init(struct kobject_list* list);
 int kobject_list_append(struct kobject_list* list, struct kobject_node* node);
 struct kobject_node* kobject_list_find_by_id(const struct kobject_list* list, uint32_t id);
 uint32_t kobject_list_count(const struct kobject_list* list);
+int kobject_list_remove_by_id(struct kobject_list* list, uint32_t id);
 
 #endif
 
