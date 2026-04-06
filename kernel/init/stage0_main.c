@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include "kernel/kobject.h"
 #include "mm/kmalloc.h"
 #include "mm/kmemory.h"
 #include "mm/kheap.h"
@@ -61,6 +62,7 @@
 #define STAGE10C_FAIL_DETAIL 0x000A00C0u
 #define STAGE10D_FAIL_DETAIL 0x000A00D0u
 #define STAGE10E_FAIL_DETAIL 0x000A00E0u
+#define STAGE11A_FAIL_DETAIL 0x000B00A0u
 
 #ifndef STAGE1_FORCE_PANIC
 #define STAGE1_FORCE_PANIC 0
@@ -198,6 +200,7 @@ static void stage10b_run_kmalloc_allocation_semantics_self_check(void);
 static void stage10c_run_kmemory_primitives_self_check(void);
 static void stage10d_run_kmalloc_lifecycle_hardening_self_check(void);
 static void stage10e_run_allocation_api_validation_suite_self_check(void);
+static void stage11a_run_kobject_groundwork_self_check(void);
 
 extern uint8_t __kernel_phys_start;
 extern uint8_t __kernel_phys_end;
@@ -2629,6 +2632,54 @@ static void stage10e_run_allocation_api_validation_suite_self_check(void)
     }
 }
 
+static void stage11a_run_kobject_groundwork_self_check(void)
+{
+    const uint32_t expected_id = 0x11A00001u;
+    const uint32_t expected_value = 0x0000BEEF;
+    struct kobject_node* node = (struct kobject_node*)0;
+    int field_init_ok = 0;
+    int next_null_ok = 0;
+    int free_ok = 0;
+    uint32_t passed = 1u;
+
+    serial_write_text("custom-os Stage 11A kernel object groundwork begin\n");
+
+    node = kobject_node_create(expected_id, expected_value);
+    serial_write_label_hex("custom-os Stage 11A object alloc result: ", (uint32_t)(uintptr_t)node);
+
+    field_init_ok =
+        (node != (struct kobject_node*)0 && node->id == expected_id && node->value == expected_value);
+    if (field_init_ok != 0) {
+        serial_write_text("custom-os Stage 11A field init result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11A field init result: FAIL\n");
+        passed = 0u;
+    }
+
+    next_null_ok = (node != (struct kobject_node*)0 && node->next == (struct kobject_node*)0);
+    if (next_null_ok != 0) {
+        serial_write_text("custom-os Stage 11A next-null result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11A next-null result: FAIL\n");
+        passed = 0u;
+    }
+
+    free_ok = (kobject_node_destroy(node) != 0);
+    if (free_ok != 0) {
+        serial_write_text("custom-os Stage 11A object free result: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11A object free result: FAIL\n");
+        passed = 0u;
+    }
+
+    if (passed != 0u) {
+        serial_write_text("custom-os Stage 11A: PASS\n");
+    } else {
+        serial_write_text("custom-os Stage 11A: FAIL\n");
+        panic("Stage 11A kobject groundwork failed", STAGE11A_FAIL_DETAIL);
+    }
+}
+
 static void pic_send_eoi(uint8_t irq)
 {
     if (irq >= 8u) {
@@ -2930,7 +2981,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     serial_init();
 
     write_text("custom-os Stage 6: init start", 0);
-    serial_write_text("custom-os v0.10.0 (Stage 10): init start\n");
+    serial_write_text("custom-os v0.11.1 (Stage 11A): init start\n");
 
 #if STAGE1_FORCE_PANIC
     panic("forced panic for Stage 1 test", 0x0000F001u);
@@ -2964,6 +3015,7 @@ void stage0_main(uint32_t mb2_magic, uint32_t mb2_info_addr)
     stage10c_run_kmemory_primitives_self_check();
     stage10d_run_kmalloc_lifecycle_hardening_self_check();
     stage10e_run_allocation_api_validation_suite_self_check();
+    stage11a_run_kobject_groundwork_self_check();
 
 #if STAGE6D_FORCE_REUSE_TEST
     stage6d_run_reuse_self_test();

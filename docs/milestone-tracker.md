@@ -49,17 +49,18 @@ Purpose: one-page status view for solo progress.
 | Stage 10D - public API lifecycle hardening validation | complete | 2026-04-04 | Add validation-only `kmalloc`/`kfree` lifecycle hardening self-check through public API (multi-alloc alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection) with deterministic markers and no allocator redesign | QEMU validation: Stage 10D markers passed for alloc A/B/C, alignment/ordering PASS, exact-size reuse candidate/result PASS, split-reuse candidate/result PASS, leftover-fragment candidate/result PASS, invalid free rejection PASS, double free rejection PASS, and final Stage 10D PASS; Stage 10A/10B/10C and Stage 9/8/7 outputs remained intact and Stage 6 timer/scancode runtime continued |
 | Stage 10E - allocation API validation suite | complete | 2026-04-04 | Add final deterministic validation suite over full public memory interface (`kmalloc`/`kfree` and `kmemory` primitives), confirming wrapper semantics and composed lifecycle behavior without allocator redesign | QEMU validation: Stage 10E markers passed for allocation API suite begin, kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, and final Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 outputs remained intact and Stage 6 tick/scancode runtime continued |
 | Stage 10 - kmalloc and allocator hardening suite (10A-10E) | complete | 2026-04-04 | Stage 10A through Stage 10E are complete and verified with deterministic public API validation and no allocator redesign | Stage 10A/10B/10C/10D/10E evidence captured |
+| Stage 11A - kernel object groundwork | complete | 2026-04-06 | Add minimal kernel object baseline (`kobject_node`) with deterministic create/destroy over Stage 10 public allocation API (`kmalloc`/`kfree`) and Stage 11A self-check markers | QEMU validation: Stage 11A markers passed for groundwork begin, object alloc result (non-NULL), field init PASS, next-null PASS, object free PASS, and final Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D outputs remained intact and Stage 6 tick/scancode runtime continued |
 
 ## Current focus
 
 - Stage 7A through Stage 7D remain complete and verified in QEMU.
 - Stage 8A through Stage 8D are complete and verified in QEMU.
 - Current baseline: Stage 7 active first-4 MiB identity-mapped paging plus Stage 8A/8B/8C/8D validated policy, mapping, and heap-bootstrap checks.
-- Current focus: Stage 10 is complete and verified in QEMU (10A through 10E). Stage 11 is not started.
+- Current focus: Stage 11A is complete and verified in QEMU. Stage 11B is not started.
 
 ## Weekly update template
 
-- Week of: 2026-04-04
+- Week of: 2026-04-06
 
 - Completed:
   - Stage 5A memory map parsing
@@ -92,6 +93,7 @@ Purpose: one-page status view for solo progress.
   - Stage 10C memory utility primitives completed and validated in QEMU (kmemset PASS, kmemcpy PASS, kmemmove overlap PASS, kmemcmp equality PASS, kmemcmp difference PASS, Stage 10C PASS; Stage 10A/10B and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 10D public API lifecycle hardening validation completed and validated in QEMU (alloc A/B/C emitted, alignment/ordering PASS, exact-size reuse PASS, split-reuse PASS, leftover-fragment PASS, invalid free rejection PASS, double free rejection PASS, Stage 10D PASS; Stage 10A/10B/10C and Stage 9/8/7 output intact, Stage 6 runtime intact)
   - Stage 10E allocation API validation suite completed and validated in QEMU (kmalloc/kfree lifecycle PASS, wrapper semantics PASS, memory primitives PASS, cross-stage continuity PASS, Stage 10E PASS; Stage 10A/10B/10C/10D and Stage 9/8/7 output intact, Stage 6 runtime intact)
+  - Stage 11A kernel object groundwork completed and validated in QEMU (object alloc result non-NULL, field init PASS, next-null PASS, object free PASS, Stage 11A PASS; Stage 10A/10B/10C/10D/10E and Stage 9D/8D/7D output intact, Stage 6 runtime intact)
 
 - Blockers:
   - None
@@ -101,7 +103,8 @@ Purpose: one-page status view for solo progress.
   - Preserve Stage 6 timer/keyboard runtime behavior under active paging baseline
   - Keep Stage 8 baseline stable under routine boot/runtime checks
   - Keep Stage 9 baseline stable under routine validation
-  - Keep Stage 10 complete baseline (10A through 10E) stable under routine validation while Stage 11 remains not started
+  - Keep Stage 10 complete baseline (10A through 10E) stable under routine validation
+  - Keep Stage 11A baseline stable under routine validation while Stage 11B remains not started
 
 - Risk changes:
   - Stage 5D allocator path is intentionally minimal and non-freeing; full allocator lifecycle remains future work
@@ -124,3 +127,4 @@ Purpose: one-page status view for solo progress.
   - Stage 10C adds freestanding memory primitive helpers (`kmemset`, `kmemcpy`, overlap-safe `kmemmove`, `kmemcmp`) and validation-only checks; no allocator redesign and no Stage 10D behavior
   - Stage 10D adds validation-only public API lifecycle hardening checks (alignment/ordering, exact-size reuse, split-fragment reuse, invalid-free rejection, double-free rejection); no allocator redesign and no Stage 10E behavior
   - Stage 10E adds validation-only composed public API suite checks across lifecycle, wrapper semantics, and memory primitives; no allocator redesign and no Stage 11 behavior
+  - Stage 11A adds minimal object create/destroy validation over existing public allocation API only; no object registry/container/reference model and no Stage 11B behavior

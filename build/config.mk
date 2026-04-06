@@ -32,6 +32,7 @@ VMM_SRC := kernel/mm/vmm.c
 KHEAP_SRC := kernel/mm/kheap.c
 KMALLOC_SRC := kernel/mm/kmalloc.c
 KMEMORY_SRC := kernel/mm/kmemory.c
+KOBJECT_SRC := kernel/kernel/kobject.c
 KERNEL_INCLUDE_DIR := kernel/include
 LINKER_SCRIPT := linker/stage0.ld
 GRUB_CFG := boot/grub/grub.cfg
@@ -45,7 +46,8 @@ VMM_OBJ := $(OUT_DIR)/vmm.o
 KHEAP_OBJ := $(OUT_DIR)/kheap.o
 KMALLOC_OBJ := $(OUT_DIR)/kmalloc.o
 KMEMORY_OBJ := $(OUT_DIR)/kmemory.o
-KERNEL_OBJS := $(KERNEL_OBJ) $(PAGING_OBJ) $(VMM_LAYOUT_OBJ) $(VMM_OBJ) $(KHEAP_OBJ) $(KMALLOC_OBJ) $(KMEMORY_OBJ)
+KOBJECT_OBJ := $(OUT_DIR)/kobject.o
+KERNEL_OBJS := $(KERNEL_OBJ) $(PAGING_OBJ) $(VMM_LAYOUT_OBJ) $(VMM_OBJ) $(KHEAP_OBJ) $(KMALLOC_OBJ) $(KMEMORY_OBJ) $(KOBJECT_OBJ)
 
 CFLAGS := -std=c11 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -Wall -Wextra -Werror -m32 -I$(KERNEL_INCLUDE_DIR) -DSTAGE1_FORCE_PANIC=$(STAGE1_FORCE_PANIC) -DSTAGE2_FORCE_EXCEPTION=$(STAGE2_FORCE_EXCEPTION)
 ASFLAGS := --32
